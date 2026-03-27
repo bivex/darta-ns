@@ -8,6 +8,7 @@ import re
 
 from darta.domain.control_flow import (
     ActionFlowStep,
+    AwaitFlowStep,
     ControlFlowDiagram,
     ControlFlowStep,
     DoWhileFlowStep,
@@ -91,6 +92,7 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         --switch-fill: #102529;
         --do-fill:     #1a1624;
         --try-fill:    #241d0d;
+        --await-fill:  #1c1433;
         --yes-fill:    #102217;
         --no-fill:     #251019;
         --action-fill: var(--surface-2);
@@ -304,6 +306,11 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-node.ns-do-while {{ border-left: 3px solid var(--blue); }}
       .ns-node.ns-switch   {{ border-left: 3px solid var(--teal); }}
       .ns-node.ns-try-catch {{ border-left: 3px solid var(--purple); }}
+      .ns-await {{ background: var(--await-fill); border-left: 3px solid var(--purple); }}
+      .ns-await .ns-label {{ color: var(--purple); }}
+      .ns-await .async-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
+        text-transform: uppercase; color: var(--purple); opacity: .7;
+        margin-right: 6px; vertical-align: middle; }}
 
       /* Depth tinting */
       .ns-depth-1 > .ns-node {{ background-color: rgba(255,255,255,0.012); }}
@@ -558,6 +565,15 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         return f'<div class="ns-sequence ns-depth-{depth}">{rendered}</div>'
 
     def _render_step(self, step: ControlFlowStep, *, depth: int) -> str:
+        if isinstance(step, AwaitFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-await">'
+                f'<div class="ns-label" aria-label="Await {escape(step.expression)}">'
+                '<span class="async-tag">await</span>'
+                f'<code class="action-text">{escape(step.expression)}</code>'
+                "</div>"
+                "</div>"
+            )
         if isinstance(step, ActionFlowStep):
             return (
                 '<div class="ns-node ns-action">'

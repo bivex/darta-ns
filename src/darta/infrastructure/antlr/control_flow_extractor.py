@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from darta.domain.control_flow import (
     ActionFlowStep,
+    AwaitFlowStep,
     CatchClauseFlow,
     ControlFlowDiagram,
     ControlFlowStep,
@@ -211,6 +212,61 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 )
                 return None
 
+            # constructorSignature (regular and named constructors)
+            ctor_sig = method_sig.constructorSignature() if hasattr(method_sig, "constructorSignature") else None
+            if ctor_sig is not None:
+                cn = ctor_sig.constructorName() if hasattr(ctor_sig, "constructorName") else None
+                if cn is not None and cn.typeIdentifier() is not None:
+                    id_or_new = cn.identifierOrNew()
+                    base = cn.typeIdentifier().getText()
+                    name = f"{base}.{id_or_new.getText()}" if id_or_new else base
+                else:
+                    ch = ctor_sig.constructorHead() if hasattr(ctor_sig, "constructorHead") else None
+                    ident = ch.identifier() if ch and hasattr(ch, "identifier") else None
+                    name = ident.getText() if ident else "<constructor>"
+                sig = context.compact(ctor_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
+            # factoryConstructorSignature
+            factory_sig = method_sig.factoryConstructorSignature() if hasattr(method_sig, "factoryConstructorSignature") else None
+            if factory_sig is not None:
+                sig = context.compact(factory_sig)
+                name = f"factory {sig[:60]}"
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
+            # operatorSignature
+            op_sig = method_sig.operatorSignature() if hasattr(method_sig, "operatorSignature") else None
+            if op_sig is not None:
+                op = op_sig.operator() if hasattr(op_sig, "operator") else None
+                op_text = context.compact(op) if op is not None else "?"
+                name = f"operator {op_text}"
+                sig = context.compact(op_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
             return None
 
         # ── Body / block extraction ─────────────────────────────────────────
@@ -276,7 +332,10 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if hasattr(ctx, "yieldEachStatement") and ctx.yieldEachStatement() is not None:
                 return ActionFlowStep(context.compact(ctx.yieldEachStatement()))
             if ctx.expressionStatement() is not None:
-                return ActionFlowStep(context.compact(ctx.expressionStatement()))
+                text = context.compact(ctx.expressionStatement())
+                if text.startswith("await "):
+                    return AwaitFlowStep(text[len("await "):].rstrip(";").strip())
+                return ActionFlowStep(text)
             if ctx.localFunctionDeclaration() is not None:
                 lfd = ctx.localFunctionDeclaration()
                 func_sig = lfd.functionSignature() if hasattr(lfd, "functionSignature") else None

@@ -16,6 +16,11 @@ class ActionFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class AwaitFlowStep(ControlFlowStep):
+    expression: str
+
+
+@dataclass(frozen=True, slots=True)
 class IfFlowStep(ControlFlowStep):
     condition: str
     then_steps: tuple[ControlFlowStep, ...]
