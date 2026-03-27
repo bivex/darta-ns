@@ -384,9 +384,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if ctx.rethrowStatement() is not None:
                 return RethrowFlowStep()
             if ctx.returnStatement() is not None:
-                rs = ctx.returnStatement()
-                expr = rs.expression()
-                return ReturnFlowStep(expression=context.compact(expr) if expr else None)
+                return self._extract_return_statement(ctx.returnStatement())
             if ctx.yieldStatement() is not None:
                 expr = context.compact(ctx.yieldStatement().expression())
                 return YieldFlowStep(expression=expr, is_each=False)
@@ -407,17 +405,23 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 ident = ctx.continueStatement().identifier()
                 return ContinueFlowStep(label=ident.getText() if ident else None)
             if ctx.expressionStatement() is not None:
-                text = context.compact(ctx.expressionStatement())
+                expr_stmt = ctx.expressionStatement()
+                text = context.compact(expr_stmt)
                 if text.startswith("await "):
                     return AwaitFlowStep(text[len("await "):].rstrip(";").strip())
                 if text.startswith("throw "):
                     return ThrowFlowStep(text[len("throw "):].rstrip(";").strip())
-                # Check for switch expression: switch(v) { ... }
-                expr_stmt = ctx.expressionStatement()
                 if hasattr(expr_stmt, "expression") and expr_stmt.expression() is not None:
                     expr = expr_stmt.expression()
-                    if hasattr(expr, "switchExpression") and expr.switchExpression() is not None:
-                        return SwitchExpressionFlowStep(expression=text.rstrip(";").strip())
+                    switch_expression_step = self._extract_switch_expression_step(
+                        expr,
+                        suffix="",
+                    )
+                    if switch_expression_step is not None:
+                        return switch_expression_step
+                    assignment_switch_step = self._extract_assignment_with_switch_expression(expr)
+                    if assignment_switch_step is not None:
+                        return assignment_switch_step
                     assignment_steps = self._extract_assignment_with_await(expr)
                     if assignment_steps:
                         return assignment_steps
@@ -465,6 +469,19 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if nls is not None and nls.block() is not None:
                 return self._extract_block(nls.block())
             return self._extract_statement_steps(statement_ctx)
+
+        def _extract_return_statement(self, return_ctx) -> ControlFlowStep:
+            expr = return_ctx.expression()
+            if expr is None:
+                return ReturnFlowStep(expression=None)
+            switch_expression_step = self._extract_switch_expression_step(
+                expr,
+                prefix="return ",
+                suffix="",
+            )
+            if switch_expression_step is not None:
+                return switch_expression_step
+            return ReturnFlowStep(expression=context.compact(expr))
 
         def _extract_if_statement(self, if_ctx) -> IfFlowStep:
             # Dart3: ifCondition contains expression and optional CASE guardedPattern
@@ -583,6 +600,25 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 ActionFlowStep(f"{target} = <await result>;"),
             )
 
+        def _extract_assignment_with_switch_expression(
+            self,
+            expression_ctx,
+        ) -> SwitchExpressionFlowStep | None:
+            if expression_ctx is None:
+                return None
+
+            text = context.compact(expression_ctx).rstrip(";").strip()
+            match = re.match(
+                r"^(?P<target>.+?)(?<![=!<>+\-*/%&|^?])\s*=\s*(?P<expr>switch\s*\(.+)$",
+                text,
+            )
+            if not match:
+                return None
+
+            target = match.group("target").strip()
+            switch_expression = match.group("expr").strip()
+            return SwitchExpressionFlowStep(expression=f"{target} = {switch_expression};")
+
         def _extract_initialized_variable_declaration_steps(self, declaration_ctx) -> tuple[ControlFlowStep, ...]:
             declared_identifier = declaration_ctx.declaredIdentifier()
             base_name = context.compact(declared_identifier)
@@ -611,6 +647,13 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
         ) -> tuple[ControlFlowStep, ...]:
             expression_text = context.compact(expression_ctx)
             suffix = ";" if include_semicolon else ""
+            switch_expression_step = self._extract_switch_expression_step(
+                expression_ctx,
+                prefix=f"{target} = ",
+                suffix=suffix,
+            )
+            if switch_expression_step is not None:
+                return (switch_expression_step,)
             if expression_text.startswith("await "):
                 awaited_expression = expression_text[len("await "):].strip()
                 return (
@@ -618,6 +661,22 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     ActionFlowStep(f"{target} = <await result>{suffix}"),
                 )
             return (ActionFlowStep(f"{target} = {expression_text}{suffix}"),)
+
+        def _extract_switch_expression_step(
+            self,
+            expression_ctx,
+            *,
+            prefix: str = "",
+            suffix: str = "",
+        ) -> SwitchExpressionFlowStep | None:
+            if expression_ctx is None:
+                return None
+
+            expression_text = context.compact(expression_ctx)
+            if not re.match(r"^switch\s*\(", expression_text):
+                return None
+
+            return SwitchExpressionFlowStep(expression=f"{prefix}{expression_text}{suffix}")
 
         def _merge_steps(
             self,

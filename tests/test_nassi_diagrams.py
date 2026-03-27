@@ -112,6 +112,49 @@ def test_nassi_diagram_renders_constructor_initializers_and_await_assignments() 
     assert "Await source" in document.html
     assert "final raw = &lt;await result&gt;;" in document.html
     assert "Await for final event in Stream.fromIterable([1, 2, 3])" in document.html
+    assert "return switch (n)" in document.html
+    assert "return switch (code)" in document.html
+
+
+def test_nassi_diagram_renders_switch_expression_steps_in_multiple_contexts(tmp_path: Path) -> None:
+    service = _build_service()
+    source_path = tmp_path / "switch_expression.dart"
+    source_path.write_text(
+        """
+String classify(int value) {
+  final label = switch (value) {
+    > 0 => 'positive',
+    _ => 'other',
+  };
+
+  currentStatus = switch (value) {
+    0 => 'zero',
+    _ => label,
+  };
+
+  return switch (value) {
+    1 => 'one',
+    _ => currentStatus,
+  };
+}
+
+void emitMode(int mode) {
+  switch (mode) {
+    0 => print('zero'),
+    _ => print('other'),
+  };
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    document = service.build_file_diagram(BuildNassiDiagramCommand(path=str(source_path)))
+
+    assert "final label = switch (value)" in document.html
+    assert "currentStatus = switch (value)" in document.html
+    assert "return switch (value)" in document.html
+    assert "switch (mode)" in document.html
+    assert document.html.count('<span class="step-tag">switch</span>') >= 4
 
 
 def test_nassi_cli_writes_html_file(tmp_path: Path) -> None:

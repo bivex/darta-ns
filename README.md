@@ -17,7 +17,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `await for (x in stream)` | ✅ | ✅ purple accent + "Await for" header |
 | `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
-| `switch(v) { p => e }` expression (Dart 3) | ✅ | ✅ teal accent + switch badge |
+| `switch(v) { p => e }` expression (Dart 3) | ✅ | ✅ teal accent + switch badge in standalone, `return`, and assignment/declaration forms |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
 | `throw expr` | ✅ | ✅ red accent + `throw` badge |
 | `await expr` | ✅ | ✅ purple accent + `await` badge |
@@ -75,6 +75,18 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `await` purple accent | ✅ |
 | Responsive layout | ✅ |
 | Directory index page | ✅ |
+
+---
+
+## Step Backlog
+
+- [x] Render Dart 3 `switch expression` as a first-class step in standalone, `return`, and assignment/declaration forms.
+- [ ] Lift `return await` and other expression-contained `await` forms into explicit await steps instead of plain `return` / `action` labels.
+- [ ] Replace the `local function ...` placeholder action with a dedicated local-function step or an inline nested-body rendering mode.
+- [ ] Recognize arrow-body `=> expr` functions through semantic steps like `throw`, `await`, `switch`, and `return`.
+- [ ] Model plain local variable declarations as dedicated declaration steps instead of generic actions.
+- [ ] Preserve statement labels and standalone block statements as structural steps.
+- [ ] Differentiate constructor initializer forms like `super(...)` from generic action labels.
 
 ---
 
