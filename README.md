@@ -2,41 +2,73 @@
 
 Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagrams as self-contained HTML pages. The architecture is DDD-inspired with hexagonal boundaries so the ANTLR infrastructure stays behind ports and the domain layer stays independent.
 
-## What it does
+## Feature Matrix
 
-**Parsing**
+### Control Flow
 
-* parse a single `.dart` file or an entire directory tree
-* extract a structural model: imports, classes, mixins, extensions, enums, functions
-* report syntax diagnostics as part of the output contract
+| Construct | Extracted | Diagram |
+|---|---|---|
+| `if` / `else if` / `else` | ✅ | ✅ NS triangle with Yes/No branches |
+| `if (x case Pattern when guard)` Dart 3 | ✅ | ✅ condition shows full pattern |
+| `while` | ✅ | ✅ loop block |
+| `do … while` | ✅ | ✅ body-first loop block |
+| `for (init; cond; incr)` | ✅ | ✅ for block |
+| `for (x in collection)` | ✅ | ✅ for block |
+| `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
+| `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
+| `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
+| `await expr` | ✅ | ✅ purple accent + `await` badge |
+| `yield` / `yield*` | ✅ | ⬜ plain action (no special style) |
+| `rethrow` | ✅ | ⬜ plain action |
+| `assert(cond)` | ✅ | ⬜ plain action |
+| `break label` / `continue label` | ✅ | ⬜ plain action |
 
-**Control flow extraction**
+### Function Discovery
 
-* if / else-if / else chains (including Dart 3 pattern guards)
-* while and do-while loops
-* for and for-in loops
-* switch / case / default (classic and Dart 3 pattern-matching)
-* try / on / catch / finally blocks
-* `await` expressions — visually distinguished from synchronous actions
+| Kind | Discovered | Notes |
+|---|---|---|
+| Top-level function | ✅ | |
+| Top-level getter | ✅ | |
+| Top-level setter | ✅ | |
+| Class method | ✅ | static and instance |
+| Class getter | ✅ | |
+| Class setter | ✅ | |
+| Constructor (default) | ✅ | block body only |
+| Constructor (named) | ✅ | block body only |
+| Factory constructor | ✅ | |
+| Operator overload | ✅ | |
+| Mixin method / getter | ✅ | |
+| Extension method / getter | ✅ | |
+| Extension type method | ✅ | |
+| Local function declaration | ⬜ | shown as action label |
 
-**Function discovery**
+### Grammar
 
-* top-level functions, getters, setters
-* class / mixin / extension / extension-type methods, getters, setters
-* constructors (default, named, factory)
-* operator overloads
+| Feature | Status |
+|---|---|
+| Grammar source | ✅ `dart-lang/sdk` spec parser v0.60 |
+| Dart 2 syntax | ✅ |
+| Dart 3 patterns & records | ✅ |
+| Dart 3 sealed / base / final classes | ✅ parsed, not specially rendered |
+| String interpolation | ✅ lexer brace-stack |
+| `async` / `async*` / `sync*` functions | ✅ |
 
-**Nassi-Shneiderman diagrams**
+### Rendering
 
-* build an NSD HTML page for one Dart file
-* build an NSD bundle with an index page for an entire directory
-* classic NS triangles for if-blocks with Yes / No labels
-* depth-coded nested ifs — up to 50 levels with color cycling and Unicode badges ①–㊿
-* side-by-side columns for switch/case blocks
-* `await` steps rendered with a purple accent to mark async boundaries
-* dark Tokyo Night-inspired theme with JetBrains Mono font
+| Feature | Status |
+|---|---|
+| Self-contained HTML output | ✅ no external dependencies |
+| Dark Tokyo Night theme | ✅ |
+| JetBrains Mono font | ✅ via Google Fonts |
+| Depth-coded nested ifs (50 levels) | ✅ color cycling + Unicode badges ①–㊿ |
+| Switch — side-by-side columns | ✅ |
+| `await` purple accent | ✅ |
+| Responsive layout | ✅ |
+| Directory index page | ✅ |
 
-### Screenshots
+---
+
+## Screenshots
 
 **`session_cipher.dart`** — constructor entry, sequential actions, and an if-block with Yes/No branches:
 
@@ -46,16 +78,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 
 ![Named constructors and getters](docs/screenshots/nested_depth.png)
 
-## Architecture
-
-Four explicit layers:
-
-| Layer | Responsibility |
-|---|---|
-| `domain` | model, invariants, ports, domain events |
-| `application` | use cases, DTOs |
-| `infrastructure` | ANTLR adapter, filesystem, event publishing |
-| `presentation` | CLI |
+---
 
 ## Quick Start
 
@@ -71,39 +94,60 @@ uv sync --extra dev
 uv run python scripts/generate_dart_parser.py
 ```
 
-3. Parse a single file:
+3. Build a Nassi-Shneiderman diagram for one Dart file:
 
 ```bash
-uv run darta parse-file path/to/file.dart
+uv run darta nassi-file path/to/file.dart --out output/file.nassi.html
 ```
 
-4. Parse a directory:
-
-```bash
-uv run darta parse-dir path/to/project
-```
-
-5. Build a Nassi-Shneiderman diagram for one Dart file:
-
-```bash
-uv run darta nassi-file path/to/algorithms.dart --out output/algorithms.nassi.html
-```
-
-6. Build diagrams for an entire directory:
+4. Build diagrams for an entire directory:
 
 ```bash
 uv run darta nassi-dir path/to/project --out output/nassi-bundle
 ```
 
-## Constraints
+5. Parse a file and get a JSON structural report:
 
-The Dart2 grammar is sourced from `antlr/grammars-v4/dart2`. It targets Dart 2.15 syntax and requires a `Dart2LexerBase` support class for string-interpolation predicates. Grammar limitations and version metadata are surfaced at runtime so downstream consumers know the contract they are integrating with.
+```bash
+uv run darta parse-file path/to/file.dart
+```
 
-## Next Steps
+See `examples/feature_tour.dart` for a single file that exercises every supported construct.
 
-* richer control flow: async/await, yield, cascade operators
-* symbol graph export
-* semantic passes on top of the structural model
-* incremental parsing and caching
-* collapsible nodes in the HTML diagrams
-* export to SVG / PNG / Mermaid
+---
+
+## Architecture
+
+Four explicit layers:
+
+| Layer | Responsibility |
+|---|---|
+| `domain` | model, invariants, ports, domain events |
+| `application` | use cases, DTOs |
+| `infrastructure` | ANTLR adapter, filesystem, event publishing |
+| `presentation` | CLI |
+
+---
+
+## Roadmap
+
+### Near-term
+
+- 🎨 **Styled `yield` / `assert` / `rethrow` steps** — distinctive block types instead of plain action boxes
+- 🔁 **Local function recursion** — inline nested `void helper() {}` bodies into the parent diagram
+- 🏷️ **`break label` / `continue label`** — render as structured jump annotations on loop blocks
+- 📦 **`switch` expression** — Dart 3 `final x = switch(v) { ... }` as an inline expression step
+
+### Medium-term
+
+- 🌊 **Cascade operator** (`..`) — chain steps grouped into a single block
+- 🔀 **Pattern binding annotations** — show bound variable names in pattern-matching steps
+- 🗂️ **Symbol graph export** — JSON graph of all types, methods, and their relationships
+- 🖼️ **SVG / PNG export** — headless Chrome or `playwright` render pass
+
+### Long-term
+
+- ⚡ **Incremental parsing** — re-parse only changed files in a directory run
+- 🔍 **Semantic passes** — type resolution, call graph, dead code hints on top of the structural model
+- 🌐 **VS Code extension** — live NSD preview panel alongside the editor
+- 📊 **Complexity metrics** — cyclomatic complexity and nesting depth badges per function
