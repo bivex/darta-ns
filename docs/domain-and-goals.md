@@ -2,16 +2,16 @@
 
 ## Problem Statement
 
-Teams need a reliable way to inspect Swift code outside the Swift compiler for two related jobs:
+Teams need a reliable way to inspect Dart code outside the Dart analyzer and compiler for two related jobs:
 
 * produce a stable, machine-consumable structural report that other tools can automate against
 * produce a human-readable control-flow view that helps engineers inspect branching logic quickly
 
-Swifta exists to turn raw Swift source into those two outputs without coupling the core model to CLI details, filesystem traversal, or ANTLR-specific concerns.
+Darta exists to turn raw Dart source into those two outputs without coupling the core model to CLI details, filesystem traversal, or ANTLR-specific concerns.
 
 ## Business Goals
 
-1. Parse Swift code in a repeatable and automatable way.
+1. Parse Dart code in a repeatable and automatable way.
 2. Expose a stable structural model that downstream tools can trust even as delivery channels evolve.
 3. Extract structured control flow from function bodies so higher-level visualizations can be built on top of it.
 4. Generate Nassi-Shneiderman HTML diagrams that are useful for inspection, onboarding, and documentation.
@@ -24,9 +24,9 @@ Swifta exists to turn raw Swift source into those two outputs without coupling t
 
 The system currently supports:
 
-* parsing one `.swift` file
+* parsing one `.dart` file
 * parsing a directory recursively
-* extracting imports, type declarations, functions, variables, and extensions
+* extracting imports, type aliases, classes, enums, mixins, extensions, and function-like members
 * returning syntax diagnostics as part of the contract
 * exposing grammar and report versions in the output
 
@@ -34,9 +34,10 @@ The system currently supports:
 
 The system currently supports:
 
-* extracting structured steps for functions and methods
-* representing `if/else`, `guard`, `while`, `for-in`, `repeat-while`, `switch`, `do/catch`, and `defer`
-* expanding common trailing closures into inline control-flow steps
+* extracting structured steps for functions, methods, getters, setters, block-body constructors, factories, and operator overloads
+* representing `if/else`, `while`, `do/while`, `for`, `for-in`, `await for`, classic `switch`, switch expressions, and `try/on/catch/finally`
+* representing statement-level constructs such as `throw`, `await`, `yield`, `yield*`, `return`, `rethrow`, `assert`, `break`, `continue`, and pattern variable declarations
+* preserving Dart 3 pattern and guard text where possible in `if` and `switch`
 * rendering one HTML Nassi-Shneiderman diagram per source file
 * rendering directory bundles with an index page
 
@@ -50,7 +51,7 @@ The system currently supports:
 
 ## In Scope
 
-* lexical and syntactic parsing of Swift source files
+* lexical and syntactic parsing of Dart source files
 * extraction of a stable structural model
 * extraction of structured control flow from function bodies
 * project-level orchestration across many files
@@ -62,8 +63,8 @@ The system currently supports:
 
 * full semantic analysis
 * type inference or name resolution
-* build graph resolution and module compilation context
-* mutation of source code or code generation back into Swift
+* build graph resolution and package compilation context
+* mutation of source code or code generation back into Dart
 * distributed deployment concerns
 * long-lived persistence beyond process-local execution
 
@@ -83,7 +84,7 @@ Its invariants are:
 
 ### Source Asset
 
-`SourceUnit` represents one Swift file with:
+`SourceUnit` represents one Dart file with:
 
 * a stable `SourceUnitId`
 * a source `location`
@@ -121,13 +122,21 @@ Concrete step variants currently include:
 
 * `ActionFlowStep`
 * `IfFlowStep`
-* `GuardFlowStep`
 * `WhileFlowStep`
+* `DoWhileFlowStep`
 * `ForInFlowStep`
-* `RepeatWhileFlowStep`
 * `SwitchFlowStep`
-* `DoCatchFlowStep`
-* `DeferFlowStep`
+* `SwitchExpressionFlowStep`
+* `TryCatchFlowStep`
+* `AwaitFlowStep`
+* `YieldFlowStep`
+* `ThrowFlowStep`
+* `ReturnFlowStep`
+* `RethrowFlowStep`
+* `AssertFlowStep`
+* `BreakFlowStep`
+* `ContinueFlowStep`
+* `PatternDeclarationFlowStep`
 
 This model is intentionally renderer-agnostic. The HTML Nassi renderer is only one consumer of it.
 

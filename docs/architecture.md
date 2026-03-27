@@ -14,7 +14,7 @@ That shape is intentional for two reasons:
 * model the domain explicitly instead of leaking ANTLR or CLI details inward
 * keep ports owned by the inner layers and adapters owned by infrastructure
 * separate machine-oriented outputs from human-oriented outputs at the application-service level
-* keep generated code and third-party grammar concerns isolated
+* keep generated code and grammar compatibility concerns isolated
 * prefer immutable records and explicit DTO mapping over hidden framework behavior
 
 ## Layers
@@ -50,7 +50,7 @@ The application layer coordinates work through ports and publishes parse lifecyc
 
 Contains:
 
-* ANTLR grammar integration and parser adapters
+* Dart grammar integration and parser adapters
 * control-flow extraction built on top of the generated parser
 * HTML Nassi renderer
 * filesystem adapters
@@ -60,8 +60,8 @@ Contains:
 Important current adapters include:
 
 * `FileSystemSourceRepository`
-* `AntlrSwiftSyntaxParser`
-* `AntlrSwiftControlFlowExtractor`
+* `AntlrDartSyntaxParser`
+* `AntlrDartControlFlowExtractor`
 * `HtmlNassiDiagramRenderer`
 * `StructuredLoggingEventPublisher`
 * `SystemClock`
@@ -94,7 +94,7 @@ Current CLI commands:
 1. The CLI resolves a file or directory path.
 2. `FileSystemSourceRepository` loads one `SourceUnit` or lists many.
 3. `ParsingJobService` creates a `ParsingJob`.
-4. `AntlrSwiftSyntaxParser` parses each source unit into a `ParseOutcome`.
+4. `AntlrDartSyntaxParser` parses each source unit into a `ParseOutcome`.
 5. The service records outcomes, emits lifecycle events, and completes the job.
 6. Application DTO mapping produces `ParsingJobReportDTO`.
 7. Presentation serializes the DTO to JSON and chooses an exit code.
@@ -103,7 +103,7 @@ Current CLI commands:
 
 1. The CLI resolves a file or directory path and any output path override.
 2. `FileSystemSourceRepository` loads source units.
-3. `NassiDiagramService` asks `AntlrSwiftControlFlowExtractor` for a `ControlFlowDiagram`.
+3. `NassiDiagramService` asks `AntlrDartControlFlowExtractor` for a `ControlFlowDiagram`.
 4. `HtmlNassiDiagramRenderer` converts that diagram into HTML.
 5. Presentation writes one HTML file per source or a full bundle plus index page.
 6. Presentation prints JSON metadata about generated artifacts.
@@ -113,8 +113,8 @@ Current CLI commands:
 The main ports and their current responsibilities are:
 
 * `SourceRepository`: file loading and directory enumeration
-* `SwiftSyntaxParser`: parse-report production
-* `SwiftControlFlowExtractor`: control-flow model extraction
+* `DartSyntaxParser`: parse-report production
+* `DartControlFlowExtractor`: control-flow model extraction
 * `NassiDiagramRenderer`: HTML rendering
 * `DomainEventPublisher`: lifecycle event publication
 * `Clock`: time source abstraction
@@ -178,7 +178,7 @@ The workload is cohesive, the domain is still forming, and the team benefits mor
 
 The current architecture leaves room for:
 
-* richer Swift semantic passes on top of the structural model
+* richer Dart semantic passes on top of the structural model
 * additional renderers that consume `ControlFlowDiagram`
 * alternate delivery channels such as services, plugins, or IDE integrations
 * persistent job storage or cached parse artifacts

@@ -2,7 +2,7 @@
 
 ## System Purpose
 
-Swifta owns the flow from Swift source input to two output families:
+Darta owns the flow from Dart source input to two output families:
 
 * versioned parse reports for machines
 * Nassi-Shneiderman HTML diagrams for humans
@@ -14,15 +14,15 @@ It is not a compiler, build system, or semantic analysis engine. It is a source-
 ### Primary Actors
 
 * developers running the CLI locally
-* CI pipelines validating or cataloging Swift source
+* CI pipelines validating or cataloging Dart source
 * downstream tools that consume JSON parse output
 * engineers opening generated HTML diagrams in a browser
 
 ### Neighbor Systems
 
-* the local filesystem that stores Swift input files and generated artifacts
-* the vendored ANTLR Swift grammar and generated parser runtime
-* future analysis or indexing systems that may consume Swifta outputs
+* the local filesystem that stores Dart input files and generated artifacts
+* the vendored Dart grammar and generated ANTLR runtime
+* future analysis or indexing systems that may consume Darta outputs
 * browser runtimes that display generated HTML diagrams
 
 ## System Boundary
@@ -43,7 +43,7 @@ Inside the system boundary:
 Outside the system boundary:
 
 * IDE behavior and editor integrations
-* the Swift compiler and build graph
+* the Dart analyzer, compiler, and package build graph
 * persistent storage systems
 * metrics backends and tracing systems
 * dashboards and monitoring products
@@ -53,7 +53,7 @@ Outside the system boundary:
 
 ### 1. Source Discovery Context
 
-Input adapters discover `.swift` files from a filesystem path and supply `SourceUnit` values to the application layer.
+Input adapters discover `.dart` files from a filesystem path and supply `SourceUnit` values to the application layer.
 
 Inputs:
 
@@ -67,7 +67,7 @@ Outputs:
 
 ### 2. Parse Report Context
 
-The application layer asks the `SwiftSyntaxParser` port to parse a `SourceUnit` and maps the result into a stable report DTO.
+The application layer asks the `DartSyntaxParser` port to parse a `SourceUnit` and maps the result into a stable report DTO.
 
 Inputs:
 
@@ -81,15 +81,15 @@ Outputs:
 
 ### 3. Control Flow Extraction Context
 
-The application layer asks the `SwiftControlFlowExtractor` port to build a `ControlFlowDiagram` from a `SourceUnit`.
+The application layer asks the `DartControlFlowExtractor` port to build a `ControlFlowDiagram` from a `SourceUnit`.
 
 Inputs:
 
-* raw Swift function bodies
+* raw Dart function and method bodies
 
 Outputs:
 
-* immutable control-flow records for each function in the file
+* immutable control-flow records for each extracted entry point in the file
 
 ### 4. Diagram Rendering Context
 
@@ -112,16 +112,16 @@ The parse-report workflow emits domain events that infrastructure currently turn
 
 ## Data Ownership
 
-Swifta owns:
+Darta owns:
 
 * the domain model
 * the application DTO contracts
 * the generated HTML document structure
 * output path conventions for CLI-generated artifacts
 
-Swifta does not own:
+Darta does not own:
 
-* the authoritative meaning of Swift semantics
+* the authoritative meaning of Dart semantics
 * the lifecycle of source files outside the current execution
 * browser rendering engines
 * long-term storage of reports or diagrams

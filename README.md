@@ -1,6 +1,6 @@
 # Darta
 
-Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagrams as self-contained HTML pages. The architecture is DDD-inspired with hexagonal boundaries so the ANTLR infrastructure stays behind ports and the domain layer stays independent.
+Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagrams as single-file HTML pages. The architecture is DDD-inspired with hexagonal boundaries so the ANTLR infrastructure stays behind ports and the domain layer stays independent.
 
 ## Feature Matrix
 
@@ -67,7 +67,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 
 | Feature | Status |
 |---|---|
-| Self-contained HTML output | ✅ no external dependencies |
+| Single-file HTML output | ✅ inline CSS/markup; default theme requests Google Fonts |
 | Dark Tokyo Night theme | ✅ |
 | JetBrains Mono font | ✅ via Google Fonts |
 | Depth-coded nested ifs (50 levels) | ✅ color cycling + Unicode badges ①–㊿ |
@@ -80,11 +80,11 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 
 ## Screenshots
 
-**`session_cipher.dart`** — constructor entry, sequential actions, and an if-block with Yes/No branches:
+**Basic control flow** — sequential actions and an if-block with Yes/No branches:
 
 ![Basic NS diagram](docs/screenshots/nassi_diagram.png)
 
-**`session_state.dart`** — named constructors and getters extracted as first-class diagram entries:
+**Deeper nesting and extracted members** — getters and nested conditionals rendered as first-class diagram entries:
 
 ![Named constructors and getters](docs/screenshots/nested_depth.png)
 

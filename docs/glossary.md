@@ -6,7 +6,7 @@
 : One execution that processes one or more source units and produces aggregated parse outcomes.
 
 `Source Unit`
-: One Swift source file treated as an addressable input with stable identity, location, and content.
+: One Dart source file treated as an addressable input with stable identity, location, and content.
 
 `Parse Outcome`
 : The immutable result of parsing one source unit, including status, diagnostics, structural elements, and statistics.
@@ -18,7 +18,7 @@
 : The normalized representation of source structure that downstream automation can consume.
 
 `Structural Element`
-: One extracted item in the structural model, such as an import, type alias, class, struct, enum, protocol, extension, function, variable, or constant.
+: One extracted item in the structural model, such as an import, type alias, class, enum, mixin, extension, function, variable, or constant.
 
 `Syntax Diagnostic`
 : A parser-reported issue with location, severity, and message.
@@ -54,12 +54,12 @@
 : An outward-facing implementation of a port that talks to a concrete technology.
 
 `Source Repository`
-: The boundary that loads one file or enumerates Swift files from a root path.
+: The boundary that loads one file or enumerates Dart files from a root path.
 
-`Swift Syntax Parser`
+`Dart Syntax Parser`
 : The boundary that turns a `SourceUnit` into a `ParseOutcome`.
 
-`Swift Control Flow Extractor`
+`Dart Control Flow Extractor`
 : The boundary that turns a `SourceUnit` into a `ControlFlowDiagram`.
 
 `Nassi Diagram Renderer`
@@ -76,6 +76,6 @@
 * Use `StructuralElement`, not `NodeInfo`.
 * Use `ControlFlowDiagram`, not `FlowTree`.
 * Use `NassiDiagramService`, not `HtmlGenerator`.
-* Use `SwiftSyntaxParser`, not `ParserHelper`.
-* Use `SwiftControlFlowExtractor`, not `BranchScanner`.
+* Use `DartSyntaxParser`, not `ParserHelper`.
+* Use `DartControlFlowExtractor`, not `BranchScanner`.
 * Use `SourceRepository`, not `FileUtils`.

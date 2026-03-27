@@ -4,28 +4,28 @@
 
 ### Parse Report Capabilities
 
-1. The system must parse a single `.swift` file.
-2. The system must parse a directory recursively and ignore non-Swift files.
+1. The system must parse a single `.dart` file.
+2. The system must parse a directory recursively and ignore non-Dart files.
 3. The system must return a versioned parse report for each source unit.
 4. The system must aggregate file-level outcomes into one parsing job result.
 5. The system must capture syntax diagnostics with message, severity, line, and column.
 6. The system must continue parsing other files when one file fails.
-7. The system must extract a stable structural model containing at least imports, type aliases, types, functions, variables, constants, and extensions.
+7. The system must extract a stable structural model containing at least imports, type aliases, classes, enums, mixins, extensions, functions, variables, and constants.
 8. The system must expose grammar version and report schema version as part of the result contract.
 9. The system must distinguish successful parsing, parsing with diagnostics, and technical failure.
 10. The CLI must return machine-readable JSON for parse workflows.
 
 ### Control Flow and Diagram Capabilities
 
-11. The system must extract structured control flow for each function or method in a Swift source file.
-12. The control-flow model must support `if/else`, `guard`, `while`, `for-in`, `repeat-while`, `switch`, `do/catch`, and `defer`.
-13. The extractor must expand supported trailing closures when doing so improves the structural control-flow model.
-14. The system must build an HTML Nassi-Shneiderman diagram for a single Swift file.
-15. The system must build a directory bundle of Nassi diagrams and an index page that links to each generated document.
-16. Diagram metadata must expose source location, function count, and function names.
-17. Diagram rendering must preserve function signatures and qualified names.
-18. Nested conditional rendering must remain readable up to the supported depth range and expose depth cues in the HTML output.
-19. Diagram layout must support responsive wrapping and must avoid cumulative nested-width growth that makes deeply nested branches unreadable.
+11. The system must extract structured control flow for each function-like member with a body in a Dart source file.
+12. The control-flow model must support `if/else`, `while`, `do/while`, `for`, `for-in`, `await for`, classic `switch`, switch expressions, and `try/on/catch/finally`.
+13. The extractor must preserve Dart 3 pattern and guard text where possible in conditions and switch cases.
+14. The model must represent statement-level constructs such as `throw`, `await`, `yield`, `yield*`, `return`, `rethrow`, `assert`, `break`, `continue`, and pattern variable declarations.
+15. The system must build an HTML Nassi-Shneiderman diagram for a single Dart file.
+16. The system must build a directory bundle of Nassi diagrams and an index page that links to each generated document.
+17. Diagram metadata must expose source location, function count, and function names.
+18. Diagram rendering must preserve function signatures and qualified names.
+19. Nested conditional rendering must remain readable up to the supported depth range and expose depth cues in the HTML output.
 20. The CLI must return machine-readable JSON metadata for diagram generation workflows.
 
 ### Architectural and Contract Requirements
@@ -40,7 +40,7 @@
 ### Maintainability
 
 * keep domain and application layers independent from ANTLR, filesystem, HTML rendering, and CLI code
-* keep modules small and single-purpose
+* keep modules small and single-purpose where practical, and keep complexity isolated when large visitors or renderers are unavoidable
 * use explicit contracts and constructor injection
 * keep parse-report and diagram workflows understandable as separate application services
 
@@ -74,7 +74,7 @@
 ### Security
 
 * do not execute parsed source
-* avoid hidden network calls during normal parsing or diagram generation
+* avoid hidden network calls during normal parsing or diagram generation, except for optional browser font requests in the default theme
 * treat the filesystem as an input/output boundary, not a trust boundary
 
 ### Extensibility
@@ -86,7 +86,7 @@
 
 ## Constraints and Honesty
 
-The current parser is based on the public `antlr/grammars-v4` Swift 5 grammar and inherits its limits. The system is expected to be honest about ambiguity, unsupported syntax, or grammar drift. When the tool cannot provide compiler-grade certainty, the contract should surface that limitation rather than hide it.
+The current parser is based on the Dart SDK spec grammar (`dart-lang/sdk`, spec parser v0.60) and a small scripted compatibility patch for Python target generation. The system is expected to be honest about ambiguity, unsupported syntax, or grammar drift. When the tool cannot provide analyzer-grade certainty, the contract should surface that limitation rather than hide it.
 
 ## Quality Attributes
 
