@@ -72,29 +72,40 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
         # ── Container tracking ──────────────────────────────────────────────
 
         def visitClassDeclaration(self, ctx):
-            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "class"
+            cnmp = ctx.classNameMaybePrimary() if hasattr(ctx, "classNameMaybePrimary") else None
+            name = _name_from_class_name_maybe_primary(cnmp) if cnmp else "class"
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitMixinDeclaration(self, ctx):
-            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "mixin"
+            twp = ctx.typeWithParameters() if hasattr(ctx, "typeWithParameters") else None
+            name = twp.typeIdentifier().getText() if twp is not None else "mixin"
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitExtensionDeclaration(self, ctx):
-            name_ctx = ctx.identifier()
-            name = name_ctx.getText() if name_ctx else "extension"
+            tint = ctx.typeIdentifierNotType() if hasattr(ctx, "typeIdentifierNotType") else None
+            name = tint.getText() if tint is not None else "extension"
+            return self._with_container(name, lambda: self.visitChildren(ctx))
+
+        def visitExtensionTypeDeclaration(self, ctx):
+            pc = ctx.primaryConstructor() if hasattr(ctx, "primaryConstructor") else None
+            if pc is not None:
+                name = pc.typeWithParameters().typeIdentifier().getText()
+            else:
+                twp = ctx.typeWithParameters() if hasattr(ctx, "typeWithParameters") else None
+                name = twp.typeIdentifier().getText() if twp is not None else "extension type"
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitEnumType(self, ctx):
-            name = ctx.identifier().getText() if ctx.identifier() else "enum"
+            cnmp = ctx.classNameMaybePrimary() if hasattr(ctx, "classNameMaybePrimary") else None
+            name = _name_from_class_name_maybe_primary(cnmp) if cnmp else "enum"
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         # ── Function / method discovery ─────────────────────────────────────
 
         def visitTopLevelDeclaration(self, ctx):
-            # functionSignature functionBody (not EXTERNAL_)
+            # functionSignature functionBody
             if (
-                ctx.EXTERNAL_() is None
-                and ctx.functionSignature() is not None
+                ctx.functionSignature() is not None
                 and ctx.functionBody() is not None
             ):
                 func_sig = ctx.functionSignature()
@@ -109,25 +120,97 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     )
                 )
                 return None
+
+            # getterSignature functionBody
+            if ctx.getterSignature() is not None and ctx.functionBody() is not None:
+                getter_sig = ctx.getterSignature()
+                ident = getter_sig.identifier()
+                base_name = ident.getText() if ident else "get"
+                name = f"get {base_name}"
+                sig = context.compact(getter_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
+            # setterSignature functionBody
+            if ctx.setterSignature() is not None and ctx.functionBody() is not None:
+                setter_sig = ctx.setterSignature()
+                ident = setter_sig.identifier()
+                base_name = ident.getText() if ident else "set"
+                name = f"set {base_name}"
+                sig = context.compact(setter_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
             return self.visitChildren(ctx)
 
-        def visitClassMemberDeclaration(self, ctx):
+        def visitMemberDeclaration(self, ctx):
             if ctx.methodSignature() is None or ctx.functionBody() is None:
                 return None
             method_sig = ctx.methodSignature()
-            func_sig = method_sig.functionSignature() if method_sig.functionSignature() else None
-            if func_sig is None:
-                return None
-            name = func_sig.identifier().getText() if func_sig.identifier() else "method"
-            sig = context.compact(func_sig)
-            self.functions.append(
-                FunctionControlFlow(
-                    name=name,
-                    signature=sig,
-                    container=".".join(self._containers) if self._containers else None,
-                    steps=self._extract_function_body(ctx.functionBody()),
+
+            # functionSignature
+            func_sig = method_sig.functionSignature() if hasattr(method_sig, "functionSignature") else None
+            if func_sig is not None:
+                name = func_sig.identifier().getText() if func_sig.identifier() else "method"
+                sig = context.compact(func_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
                 )
-            )
+                return None
+
+            # getterSignature
+            getter_sig = method_sig.getterSignature() if hasattr(method_sig, "getterSignature") else None
+            if getter_sig is not None:
+                ident = getter_sig.identifier()
+                base_name = ident.getText() if ident else "get"
+                name = f"get {base_name}"
+                sig = context.compact(getter_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
+            # setterSignature
+            setter_sig = method_sig.setterSignature() if hasattr(method_sig, "setterSignature") else None
+            if setter_sig is not None:
+                ident = setter_sig.identifier()
+                base_name = ident.getText() if ident else "set"
+                name = f"set {base_name}"
+                sig = context.compact(setter_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+
             return None
 
         # ── Body / block extraction ─────────────────────────────────────────
@@ -135,11 +218,13 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
         def _extract_function_body(self, function_body_ctx) -> tuple[ControlFlowStep, ...]:
             if function_body_ctx is None:
                 return ()
-            # Arrow function: async? => expr ;
-            if function_body_ctx.EG() is not None and function_body_ctx.expr() is not None:
-                expr_text = context.compact(function_body_ctx.expr())
+            # Arrow function: (async?) => expression ;
+            # Check for expression() in arrow-form — functionBody has expression() when it's =>
+            expr = function_body_ctx.expression() if hasattr(function_body_ctx, "expression") else None
+            if expr is not None and function_body_ctx.block() is None:
+                expr_text = context.compact(expr)
                 return (ActionFlowStep(f"=> {expr_text}"),)
-            # Block body: (async*? | sync*)? block
+            # Block body
             if function_body_ctx.block() is not None:
                 return self._extract_block(function_body_ctx.block())
             return ()
@@ -180,9 +265,24 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if ctx.block() is not None:
                 steps = self._extract_block(ctx.block())
                 if steps:
-                    # Flatten bare block inline as an action placeholder
                     return ActionFlowStep("{ ... }")
                 return None
+            if ctx.rethrowStatement() is not None:
+                return ActionFlowStep("rethrow")
+            if ctx.returnStatement() is not None:
+                return ActionFlowStep(context.compact(ctx.returnStatement()))
+            if ctx.yieldStatement() is not None:
+                return ActionFlowStep(context.compact(ctx.yieldStatement()))
+            if hasattr(ctx, "yieldEachStatement") and ctx.yieldEachStatement() is not None:
+                return ActionFlowStep(context.compact(ctx.yieldEachStatement()))
+            if ctx.expressionStatement() is not None:
+                return ActionFlowStep(context.compact(ctx.expressionStatement()))
+            if ctx.localFunctionDeclaration() is not None:
+                lfd = ctx.localFunctionDeclaration()
+                func_sig = lfd.functionSignature() if hasattr(lfd, "functionSignature") else None
+                if func_sig is not None and func_sig.identifier() is not None:
+                    return ActionFlowStep(f"local function {func_sig.identifier().getText()}")
+                return ActionFlowStep("local function")
             return ActionFlowStep(context.compact(ctx))
 
         # ── Statement extractors ────────────────────────────────────────────
@@ -204,7 +304,9 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             return (step,) if step is not None else ()
 
         def _extract_if_statement(self, if_ctx) -> IfFlowStep:
-            condition = context.compact(if_ctx.expr())
+            # Dart3: ifCondition contains the expression
+            if_cond = if_ctx.ifCondition()
+            condition = context.compact(if_cond.expression()) if if_cond is not None else "condition"
             statements = if_ctx.statement()
             then_steps = self._extract_statement_as_steps(
                 statements[0] if len(statements) > 0 else None
@@ -225,13 +327,13 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             )
 
         def _extract_while_statement(self, while_ctx) -> WhileFlowStep:
-            condition = context.compact(while_ctx.expr())
+            condition = context.compact(while_ctx.expression())
             body_steps = self._extract_statement_as_steps(while_ctx.statement())
             return WhileFlowStep(condition=condition or "condition", body_steps=body_steps)
 
         def _extract_do_statement(self, do_ctx) -> DoWhileFlowStep:
             body_steps = self._extract_statement_as_steps(do_ctx.statement())
-            condition = context.compact(do_ctx.expr())
+            condition = context.compact(do_ctx.expression())
             return DoWhileFlowStep(condition=condition or "condition", body_steps=body_steps)
 
         def _extract_for_statement(self, for_ctx) -> ForInFlowStep:
@@ -240,14 +342,14 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             return ForInFlowStep(header=header or "item in collection", body_steps=body_steps)
 
         def _extract_switch_statement(self, switch_ctx) -> SwitchFlowStep:
-            expression = context.compact(switch_ctx.expr())
+            expression = context.compact(switch_ctx.expression())
             cases: list[SwitchCaseFlow] = []
-            for case_ctx in (switch_ctx.switchCase() or []):
-                label = f"case {context.compact(case_ctx.expr())}"
+            for case_ctx in (switch_ctx.switchStatementCase() or []):
+                label = f"case {context.compact(case_ctx.guardedPattern())}"
                 steps = self._extract_statements(case_ctx.statements())
                 cases.append(SwitchCaseFlow(label=label, steps=steps))
-            if switch_ctx.defaultCase() is not None:
-                steps = self._extract_statements(switch_ctx.defaultCase().statements())
+            if switch_ctx.switchStatementDefault() is not None:
+                steps = self._extract_statements(switch_ctx.switchStatementDefault().statements())
                 cases.append(SwitchCaseFlow(label="default", steps=steps))
             return SwitchFlowStep(expression=expression, cases=tuple(cases))
 
@@ -255,7 +357,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             body_steps = self._extract_block(try_ctx.block())
             catches: list[CatchClauseFlow] = []
             for on_part_ctx in (try_ctx.onPart() or []):
-                if on_part_ctx.ON_() is not None:
+                if on_part_ctx.ON() is not None:
                     type_text = context.compact(on_part_ctx.typeNotVoid())
                     catch_part = on_part_ctx.catchPart()
                     if catch_part is not None:
@@ -288,3 +390,16 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 self._containers.pop()
 
     return DartControlFlowVisitor
+
+
+def _name_from_class_name_maybe_primary(cnmp) -> str:
+    """Extract the type name from a classNameMaybePrimary context."""
+    if cnmp is None:
+        return "class"
+    twp = cnmp.typeWithParameters() if hasattr(cnmp, "typeWithParameters") else None
+    if twp is not None:
+        return twp.typeIdentifier().getText()
+    pc = cnmp.primaryConstructor() if hasattr(cnmp, "primaryConstructor") else None
+    if pc is not None:
+        return pc.typeWithParameters().typeIdentifier().getText()
+    return "class"

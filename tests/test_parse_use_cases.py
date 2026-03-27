@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def _ensure_generated_parser() -> None:
     generated_parser = (
-        ROOT / "src" / "darta" / "infrastructure" / "antlr" / "generated" / "dart2" / "Dart2Parser.py"
+        ROOT / "src" / "darta" / "infrastructure" / "antlr" / "generated" / "dart3" / "DartParser.py"
     )
     if generated_parser.exists():
         return

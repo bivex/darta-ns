@@ -7,3 +7,4 @@ __pycache__/
 build/
 dist/
 src/darta/infrastructure/antlr/generated/dart2/
+src/darta/infrastructure/antlr/generated/dart3/

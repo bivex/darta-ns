@@ -80,7 +80,17 @@ def _build_structure_visitor(visitor_base: type) -> type:
             return None
 
         def visitTypeAlias(self, ctx):
-            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "typedef"
+            # Dart3: typeAlias has typeWithParameters or functionTypeAlias
+            twp = ctx.typeWithParameters() if hasattr(ctx, "typeWithParameters") else None
+            if twp is not None:
+                name = twp.typeIdentifier().getText()
+            else:
+                fta = ctx.functionTypeAlias() if hasattr(ctx, "functionTypeAlias") else None
+                if fta is not None and fta.functionPrefix() is not None:
+                    fp = fta.functionPrefix()
+                    name = fp.identifier().getText() if fp.identifier() else "typedef"
+                else:
+                    name = "typedef"
             self._append(
                 StructuralElementKind.TYPE_ALIAS,
                 name,
@@ -90,23 +100,26 @@ def _build_structure_visitor(visitor_base: type) -> type:
             return None
 
         def visitEnumType(self, ctx):
-            name = ctx.identifier().getText() if ctx.identifier() else "enum"
+            # Dart3: enumType uses classNameMaybePrimary
+            name = _name_from_class_name_maybe_primary(ctx.classNameMaybePrimary())
             self._append(StructuralElementKind.ENUM, name, ctx, signature=f"enum {name}")
             return None
 
         def visitClassDeclaration(self, ctx):
-            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "class"
+            cnmp = ctx.classNameMaybePrimary() if hasattr(ctx, "classNameMaybePrimary") else None
+            name = _name_from_class_name_maybe_primary(cnmp) if cnmp else "class"
             self._append(StructuralElementKind.CLASS, name, ctx, signature=f"class {name}")
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitMixinDeclaration(self, ctx):
-            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "mixin"
+            twp = ctx.typeWithParameters() if hasattr(ctx, "typeWithParameters") else None
+            name = twp.typeIdentifier().getText() if twp is not None else "mixin"
             self._append(StructuralElementKind.MIXIN, name, ctx, signature=f"mixin {name}")
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitExtensionDeclaration(self, ctx):
-            name_ctx = ctx.identifier()
-            name = name_ctx.getText() if name_ctx else "extension"
+            tint = ctx.typeIdentifierNotType() if hasattr(ctx, "typeIdentifierNotType") else None
+            name = tint.getText() if tint is not None else "extension"
             self._append(
                 StructuralElementKind.EXTENSION,
                 name,
@@ -115,11 +128,27 @@ def _build_structure_visitor(visitor_base: type) -> type:
             )
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
+        def visitExtensionTypeDeclaration(self, ctx):
+            # extensionTypeDeclaration: EXTENSION TYPE primaryConstructor ...
+            # or AUGMENT EXTENSION TYPE typeWithParameters ...
+            pc = ctx.primaryConstructor() if hasattr(ctx, "primaryConstructor") else None
+            if pc is not None:
+                name = pc.typeWithParameters().typeIdentifier().getText()
+            else:
+                twp = ctx.typeWithParameters() if hasattr(ctx, "typeWithParameters") else None
+                name = twp.typeIdentifier().getText() if twp is not None else "extension type"
+            self._append(
+                StructuralElementKind.EXTENSION,
+                name,
+                ctx,
+                signature=f"extension type {name}",
+            )
+            return self._with_container(name, lambda: self.visitChildren(ctx))
+
         def visitTopLevelDeclaration(self, ctx):
-            # functionSignature functionBody (not EXTERNAL_)
+            # functionSignature functionBody (not AUGMENT-only or EXTERNAL-only)
             if (
-                ctx.EXTERNAL_() is None
-                and ctx.functionSignature() is not None
+                ctx.functionSignature() is not None
                 and ctx.functionBody() is not None
             ):
                 func_sig = ctx.functionSignature()
@@ -136,12 +165,28 @@ def _build_structure_visitor(visitor_base: type) -> type:
             # getterSignature functionBody
             if ctx.getterSignature() is not None and ctx.functionBody() is not None:
                 getter = ctx.getterSignature()
-                name = getter.identifier().getText() if getter.identifier() else "get"
+                ident = getter.identifier()
+                base_name = ident.getText() if ident else "get"
+                name = f"get {base_name}"
                 self._append(
                     StructuralElementKind.FUNCTION,
                     name,
                     ctx,
-                    signature=f"get {name}",
+                    signature=f"get {base_name}",
+                )
+                return None
+
+            # setterSignature functionBody
+            if ctx.setterSignature() is not None and ctx.functionBody() is not None:
+                setter = ctx.setterSignature()
+                ident = setter.identifier()
+                base_name = ident.getText() if ident else "set"
+                name = f"set {base_name}"
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    name,
+                    ctx,
+                    signature=f"set {base_name}",
                 )
                 return None
 
@@ -150,20 +195,52 @@ def _build_structure_visitor(visitor_base: type) -> type:
 
         # ── Class members ───────────────────────────────────────────────────
 
-        def visitClassMemberDeclaration(self, ctx):
-            if ctx.methodSignature() is not None and ctx.functionBody() is not None:
-                method_sig = ctx.methodSignature()
-                func_sig = method_sig.functionSignature() if method_sig.functionSignature() else None
-                if func_sig is not None:
-                    name = func_sig.identifier().getText() if func_sig.identifier() else "method"
-                    sig = func_sig.getText()
-                    self._append(
-                        StructuralElementKind.FUNCTION,
-                        name,
-                        ctx,
-                        signature=sig,
-                    )
-                    return None
+        def visitMemberDeclaration(self, ctx):
+            if ctx.methodSignature() is None or ctx.functionBody() is None:
+                return self.visitChildren(ctx)
+            method_sig = ctx.methodSignature()
+
+            # functionSignature
+            func_sig = method_sig.functionSignature() if hasattr(method_sig, "functionSignature") else None
+            if func_sig is not None:
+                name = func_sig.identifier().getText() if func_sig.identifier() else "method"
+                sig = func_sig.getText()
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    name,
+                    ctx,
+                    signature=sig,
+                )
+                return None
+
+            # getterSignature
+            getter_sig = method_sig.getterSignature() if hasattr(method_sig, "getterSignature") else None
+            if getter_sig is not None:
+                ident = getter_sig.identifier()
+                base_name = ident.getText() if ident else "get"
+                name = f"get {base_name}"
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    name,
+                    ctx,
+                    signature=f"get {base_name}",
+                )
+                return None
+
+            # setterSignature
+            setter_sig = method_sig.setterSignature() if hasattr(method_sig, "setterSignature") else None
+            if setter_sig is not None:
+                ident = setter_sig.identifier()
+                base_name = ident.getText() if ident else "set"
+                name = f"set {base_name}"
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    name,
+                    ctx,
+                    signature=f"set {base_name}",
+                )
+                return None
+
             return self.visitChildren(ctx)
 
         # ── Helpers ─────────────────────────────────────────────────────────
@@ -189,3 +266,17 @@ def _build_structure_visitor(visitor_base: type) -> type:
                 self._containers.pop()
 
     return DartStructureVisitor
+
+
+def _name_from_class_name_maybe_primary(cnmp) -> str:
+    """Extract the type name from a classNameMaybePrimary context."""
+    if cnmp is None:
+        return "class"
+    # classNameMaybePrimary: primaryConstructor | typeWithParameters
+    twp = cnmp.typeWithParameters() if hasattr(cnmp, "typeWithParameters") else None
+    if twp is not None:
+        return twp.typeIdentifier().getText()
+    pc = cnmp.primaryConstructor() if hasattr(cnmp, "primaryConstructor") else None
+    if pc is not None:
+        return pc.typeWithParameters().typeIdentifier().getText()
+    return "class"

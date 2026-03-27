@@ -16,7 +16,7 @@ from darta.infrastructure.antlr.error_listener import CollectingErrorListener
 
 
 ANTLR_GRAMMAR_VERSION = GrammarVersion(
-    "antlr4@4.13.2+python:antlr/grammars-v4/dart2 (targets Dart 2.15)"
+    "dart-lang/sdk spec grammar v0.60 (Dart 3)"
 )
 
 
@@ -38,13 +38,13 @@ class ParseTreeResult:
 def load_generated_types() -> GeneratedParserTypes:
     try:
         lexer_module = importlib.import_module(
-            "darta.infrastructure.antlr.generated.dart2.Dart2Lexer"
+            "darta.infrastructure.antlr.generated.dart3.DartLexer"
         )
         parser_module = importlib.import_module(
-            "darta.infrastructure.antlr.generated.dart2.Dart2Parser"
+            "darta.infrastructure.antlr.generated.dart3.DartParser"
         )
         visitor_module = importlib.import_module(
-            "darta.infrastructure.antlr.generated.dart2.Dart2ParserVisitor"
+            "darta.infrastructure.antlr.generated.dart3.DartVisitor"
         )
     except ModuleNotFoundError as error:
         raise GeneratedParserNotAvailableError(
@@ -53,9 +53,9 @@ def load_generated_types() -> GeneratedParserTypes:
         ) from error
 
     return GeneratedParserTypes(
-        lexer_type=lexer_module.Dart2Lexer,
-        parser_type=parser_module.Dart2Parser,
-        visitor_type=visitor_module.Dart2ParserVisitor,
+        lexer_type=lexer_module.DartLexer,
+        parser_type=parser_module.DartParser,
+        visitor_type=visitor_module.DartVisitor,
     )
 
 
@@ -65,7 +65,7 @@ def parse_source_text(
 ) -> ParseTreeResult:
     return _parse_entry_text(
         source_text,
-        entry_rule_name="compilationUnit",
+        entry_rule_name="startSymbol",
         generated_types=generated_types,
     )
 
