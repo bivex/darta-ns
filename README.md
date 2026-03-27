@@ -143,15 +143,16 @@ Four explicit layers:
 
 ### Near-term
 
-- 🔁 **Local function recursion** — inline nested `void helper() {}` bodies into the parent diagram
-- 📦 **`switch` expression** — Dart 3 `final x = switch(v) { ... }` as an inline expression step
+- 📦 **`switch` expression** — Dart 3 `final x = switch(v) { p => e }` as an inline expression step
+- 🔀 **Pattern variable declarations** — `var (a, b) = pair` / `var Point(:x, :y) = p` with visual distinction
+- 🔁 **Local function inlining** — expand nested `void helper() {}` bodies inline in parent diagram
 
 ### Medium-term
 
 - 🌊 **Cascade operator** (`..`) — chain steps grouped into a single block
-- 🔀 **Pattern binding annotations** — show bound variable names in pattern-matching steps
 - 🗂️ **Symbol graph export** — JSON graph of all types, methods, and their relationships
 - 🖼️ **SVG / PNG export** — headless Chrome or `playwright` render pass
+- 🎨 **Pattern destructuring visual** — show structure of pattern matches in if/switch
 
 ### Long-term
 
