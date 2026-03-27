@@ -8,3 +8,4 @@ build/
 dist/
 src/darta/infrastructure/antlr/generated/dart2/
 src/darta/infrastructure/antlr/generated/dart3/
+examples/feature_tour.nassi.html

@@ -239,7 +239,13 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             factory_sig = method_sig.factoryConstructorSignature() if hasattr(method_sig, "factoryConstructorSignature") else None
             if factory_sig is not None:
                 sig = context.compact(factory_sig)
-                name = f"factory {sig[:60]}"
+                tpn = factory_sig.constructorTwoPartName() if hasattr(factory_sig, "constructorTwoPartName") else None
+                if tpn is not None and tpn.identifierOrNew() is not None:
+                    name = f"factory {tpn.identifierOrNew().getText()}"
+                else:
+                    fch = factory_sig.factoryConstructorHead() if hasattr(factory_sig, "factoryConstructorHead") else None
+                    ident = fch.identifier() if fch and hasattr(fch, "identifier") else None
+                    name = f"factory {ident.getText()}" if ident else "factory"
                 self.functions.append(
                     FunctionControlFlow(
                         name=name,
