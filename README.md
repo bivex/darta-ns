@@ -84,7 +84,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 
 ![Basic NS diagram](docs/screenshots/nassi_diagram.png)
 
-**Deeper nesting and extracted members** — getters and nested conditionals rendered as first-class diagram entries:
+**Deeper nesting and extracted members** — nested conditionals, constructor/getter coverage, and local helper declarations represented alongside the main function flow:
 
 ![Named constructors and getters](docs/screenshots/nested_depth.png)
 

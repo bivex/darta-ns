@@ -151,7 +151,30 @@ Future<List<int>> loadAndFilter(Future<List<int>> source) async {
   return result;
 }
 
-// ── 10. Class: block-body constructors, getter, setter, operator ─────────────
+// ── 10. Local function declarations ───────────────────────────────────────────
+
+String formatTaggedValue(int value) {
+  String helper(String prefix) {
+    String normalize(String raw) {
+      if (raw.isEmpty) {
+        return 'missing';
+      }
+      return raw.toUpperCase();
+    }
+
+    if (value < 0) {
+      return 'NEG:${normalize(prefix)}:${-value}';
+    }
+    return '${normalize(prefix)}:$value';
+  }
+
+  if (value == 0) {
+    return helper('zero');
+  }
+  return helper('value');
+}
+
+// ── 11. Class: block-body constructors, getter, setter, operator ─────────────
 
 class Vector2 {
   final double x;
@@ -229,7 +252,7 @@ class Vector2 {
   }
 }
 
-// ── 11. Abstract class / getter override ─────────────────────────────────────
+// ── 12. Abstract class / getter override ─────────────────────────────────────
 
 abstract class Shape {
   String get name;
@@ -264,7 +287,7 @@ class Rectangle extends Shape {
   double get area => width * height;
 }
 
-// ── 12. Mixin ────────────────────────────────────────────────────────────────
+// ── 13. Mixin ────────────────────────────────────────────────────────────────
 
 mixin Loggable {
   final _log = <String>[];
@@ -289,7 +312,7 @@ class LoggedVector extends Vector2 with Loggable {
   }
 }
 
-// ── 13. Extension ────────────────────────────────────────────────────────────
+// ── 14. Extension ────────────────────────────────────────────────────────────
 
 extension IntRangeExtension on int {
   bool isBetween(int lo, int hi) {
@@ -311,7 +334,7 @@ extension IntRangeExtension on int {
   }
 }
 
-// ── 14. yield / yield* ───────────────────────────────────────────────────────
+// ── 15. yield / yield* ───────────────────────────────────────────────────────
 
 Iterable<int> range(int start, int end) sync* {
   for (var i = start; i < end; i++) {
@@ -332,7 +355,7 @@ Stream<String> ticker(int count) async* {
   }
 }
 
-// ── 15. rethrow ───────────────────────────────────────────────────────────────
+// ── 16. rethrow ───────────────────────────────────────────────────────────────
 
 String parsePositive(String s) {
   try {
@@ -348,7 +371,7 @@ String parsePositive(String s) {
   }
 }
 
-// ── 16. assert ────────────────────────────────────────────────────────────────
+// ── 17. assert ────────────────────────────────────────────────────────────────
 
 double divide(double a, double b) {
   assert(b != 0, 'divisor must not be zero');
@@ -361,7 +384,7 @@ List<int> takeN(List<int> list, int n) {
   return list.sublist(0, n);
 }
 
-// ── 17. break label / continue label ─────────────────────────────────────────
+// ── 18. break label / continue label ─────────────────────────────────────────
 
 List<List<int>> findPairs(List<int> haystack, int target) {
   final result = <List<int>>[];
@@ -380,7 +403,7 @@ List<List<int>> findPairs(List<int> haystack, int target) {
   return result;
 }
 
-// ── 18. throw / return styled steps ───────────────────────────────────────────
+// ── 19. throw / return styled steps ───────────────────────────────────────────
 
 String validateAge(int age) {
   if (age < 0) {
@@ -392,7 +415,7 @@ String validateAge(int age) {
   return 'valid';
 }
 
-// ── 19. await for loop ─────────────────────────────────────────────────────────
+// ── 20. await for loop ─────────────────────────────────────────────────────────
 
 Future<int> countStreamEvents() async {
   var count = 0;
@@ -404,7 +427,7 @@ Future<int> countStreamEvents() async {
   return count;
 }
 
-// ── 20. if-case pattern matching (Dart 3) ─────────────────────────────────────
+// ── 21. if-case pattern matching (Dart 3) ─────────────────────────────────────
 
 String describeJson(Object json) {
   if (json case Map<String, Object>() when json.containsKey('name')) {
@@ -416,7 +439,7 @@ String describeJson(Object json) {
   return 'unknown JSON type';
 }
 
-// ── 21. Pattern variable declarations (Dart 3) ────────────────────────────────
+// ── 22. Pattern variable declarations (Dart 3) ────────────────────────────────
 
 (String, int) parsePair(Object obj) {
   if (obj case (String s, int n)) {
@@ -430,7 +453,7 @@ String describeJson(Object json) {
   return (x, y);
 }
 
-// ── 22. Switch expression (Dart 3) ────────────────────────────────────────────
+// ── 23. Switch expression (Dart 3) ────────────────────────────────────────────
 
 String classifyNumber(int n) {
   return switch (n) {
