@@ -1,13 +1,14 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-from swifta.application.dto import ParseDirectoryCommand, ParseFileCommand
-from swifta.application.use_cases import ParsingJobService
-from swifta.infrastructure.antlr.parser_adapter import AntlrSwiftSyntaxParser
-from swifta.infrastructure.filesystem.source_repository import FileSystemSourceRepository
-from swifta.infrastructure.system import (
+from darta.application.dto import ParseDirectoryCommand, ParseFileCommand
+from darta.application.use_cases import ParsingJobService
+from darta.infrastructure.antlr.parser_adapter import AntlrDartSyntaxParser
+from darta.infrastructure.filesystem.source_repository import FileSystemSourceRepository
+from darta.infrastructure.system import (
     InMemoryParsingJobRepository,
     StructuredLoggingEventPublisher,
     SystemClock,
@@ -19,12 +20,12 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def _ensure_generated_parser() -> None:
     generated_parser = (
-        ROOT / "src" / "swifta" / "infrastructure" / "antlr" / "generated" / "swift5" / "Swift5Parser.py"
+        ROOT / "src" / "darta" / "infrastructure" / "antlr" / "generated" / "dart2" / "Dart2Parser.py"
     )
     if generated_parser.exists():
         return
     subprocess.run(
-        [sys.executable, "scripts/generate_swift_parser.py"],
+        [sys.executable, "scripts/generate_dart_parser.py"],
         cwd=ROOT,
         check=True,
     )
@@ -34,7 +35,7 @@ def _build_service() -> ParsingJobService:
     _ensure_generated_parser()
     return ParsingJobService(
         source_repository=FileSystemSourceRepository(),
-        parser=AntlrSwiftSyntaxParser(),
+        parser=AntlrDartSyntaxParser(),
         event_publisher=StructuredLoggingEventPublisher(),
         clock=SystemClock(),
         job_repository=InMemoryParsingJobRepository(),
@@ -43,16 +44,15 @@ def _build_service() -> ParsingJobService:
 
 def test_parse_file_extracts_structure() -> None:
     service = _build_service()
-    report = service.parse_file(ParseFileCommand(path=str(ROOT / "tests" / "fixtures" / "valid.swift")))
+    report = service.parse_file(ParseFileCommand(path=str(ROOT / "tests" / "fixtures" / "valid.dart")))
 
     assert report.summary.source_count == 1
     assert report.summary.technical_failure_count == 0
     assert report.sources[0].status in {"succeeded", "succeeded_with_diagnostics"}
     assert {element.kind for element in report.sources[0].structural_elements} >= {
         "import",
-        "struct",
+        "class",
         "function",
-        "extension",
     }
 
 
@@ -66,15 +66,14 @@ def test_parse_directory_returns_report_for_all_files() -> None:
 
 def test_parse_file_handles_enum_declaration(tmp_path: Path) -> None:
     service = _build_service()
-    source_path = tmp_path / "enum_parse.swift"
+    source_path = tmp_path / "enum_parse.dart"
     source_path.write_text(
         """
 enum Mode {
-    case active
+  active,
+  inactive;
 
-    func title() -> String {
-        return "active"
-    }
+  String get title => name;
 }
 """.strip(),
         encoding="utf-8",
@@ -84,7 +83,7 @@ enum Mode {
 
     assert report.summary.source_count == 1
     assert report.summary.technical_failure_count == 0
-    assert {element.kind for element in report.sources[0].structural_elements} >= {"enum", "function"}
+    assert {element.kind for element in report.sources[0].structural_elements} >= {"enum"}
 
 
 def test_cli_outputs_json() -> None:
@@ -93,14 +92,15 @@ def test_cli_outputs_json() -> None:
         [
             sys.executable,
             "-m",
-            "swifta.presentation.cli.main",
+            "darta.presentation.cli.main",
             "parse-file",
-            str(ROOT / "tests" / "fixtures" / "valid.swift"),
+            str(ROOT / "tests" / "fixtures" / "valid.dart"),
         ],
         cwd=ROOT,
         check=False,
         capture_output=True,
         text=True,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
     )
 
     assert result.returncode == 0

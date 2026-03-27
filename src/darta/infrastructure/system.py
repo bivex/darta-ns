@@ -8,9 +8,9 @@ from dataclasses import asdict, is_dataclass
 from datetime import UTC, datetime
 from enum import Enum
 
-from swifta.domain.events import DomainEvent
-from swifta.domain.model import ParsingJob
-from swifta.domain.ports import Clock, DomainEventPublisher, ParsingJobRepository
+from darta.domain.events import DomainEvent
+from darta.domain.model import ParsingJob
+from darta.domain.ports import Clock, DomainEventPublisher, ParsingJobRepository
 
 
 class SystemClock(Clock):
@@ -28,7 +28,7 @@ class InMemoryParsingJobRepository(ParsingJobRepository):
 
 class StructuredLoggingEventPublisher(DomainEventPublisher):
     def __init__(self, logger: logging.Logger | None = None) -> None:
-        self._logger = logger or logging.getLogger("swifta.events")
+        self._logger = logger or logging.getLogger("darta.events")
 
     def publish(self, event: DomainEvent) -> None:
         payload = _serialize(event)

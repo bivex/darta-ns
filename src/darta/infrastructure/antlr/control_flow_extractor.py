@@ -1,0 +1,290 @@
+"""Extract structured control flow from Dart source through ANTLR."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from darta.domain.control_flow import (
+    ActionFlowStep,
+    CatchClauseFlow,
+    ControlFlowDiagram,
+    ControlFlowStep,
+    DoWhileFlowStep,
+    ForInFlowStep,
+    FunctionControlFlow,
+    IfFlowStep,
+    SwitchCaseFlow,
+    SwitchFlowStep,
+    TryCatchFlowStep,
+    WhileFlowStep,
+)
+from darta.domain.model import SourceUnit
+from darta.domain.ports import DartControlFlowExtractor
+from darta.infrastructure.antlr.runtime import (
+    load_generated_types,
+    parse_source_text,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _ExtractorContext:
+    token_stream: object
+
+    def text(self, ctx) -> str:
+        if ctx is None:
+            return ""
+        input_stream = self.token_stream.tokenSource.inputStream
+        return input_stream.getText(ctx.start.start, ctx.stop.stop)
+
+    def compact(self, ctx, *, limit: int = 96) -> str:
+        text = re.sub(r"\s+", " ", self.text(ctx)).strip()
+        if len(text) <= limit:
+            return text
+        return f"{text[: limit - 1]}..."
+
+
+class AntlrDartControlFlowExtractor(DartControlFlowExtractor):
+    def __init__(self) -> None:
+        self._generated = load_generated_types()
+
+    def extract(self, source_unit: SourceUnit) -> ControlFlowDiagram:
+        try:
+            parse_result = parse_source_text(source_unit.content, self._generated)
+            ctx = _ExtractorContext(token_stream=parse_result.token_stream)
+            visitor = _build_control_flow_visitor(self._generated.visitor_type, ctx)()
+            visitor.visit(parse_result.tree)
+            return ControlFlowDiagram(
+                source_location=source_unit.location,
+                functions=tuple(visitor.functions),
+            )
+        except Exception:
+            return ControlFlowDiagram(source_location=source_unit.location, functions=())
+
+
+def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) -> type:
+    class DartControlFlowVisitor(visitor_base):
+        def __init__(self) -> None:
+            super().__init__()
+            self.functions: list[FunctionControlFlow] = []
+            self._containers: list[str] = []
+
+        # ── Container tracking ──────────────────────────────────────────────
+
+        def visitClassDeclaration(self, ctx):
+            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "class"
+            return self._with_container(name, lambda: self.visitChildren(ctx))
+
+        def visitMixinDeclaration(self, ctx):
+            name = ctx.typeIdentifier().getText() if ctx.typeIdentifier() else "mixin"
+            return self._with_container(name, lambda: self.visitChildren(ctx))
+
+        def visitExtensionDeclaration(self, ctx):
+            name_ctx = ctx.identifier()
+            name = name_ctx.getText() if name_ctx else "extension"
+            return self._with_container(name, lambda: self.visitChildren(ctx))
+
+        def visitEnumType(self, ctx):
+            name = ctx.identifier().getText() if ctx.identifier() else "enum"
+            return self._with_container(name, lambda: self.visitChildren(ctx))
+
+        # ── Function / method discovery ─────────────────────────────────────
+
+        def visitTopLevelDeclaration(self, ctx):
+            # functionSignature functionBody (not EXTERNAL_)
+            if (
+                ctx.EXTERNAL_() is None
+                and ctx.functionSignature() is not None
+                and ctx.functionBody() is not None
+            ):
+                func_sig = ctx.functionSignature()
+                name = func_sig.identifier().getText() if func_sig.identifier() else "function"
+                sig = context.compact(func_sig)
+                self.functions.append(
+                    FunctionControlFlow(
+                        name=name,
+                        signature=sig,
+                        container=".".join(self._containers) if self._containers else None,
+                        steps=self._extract_function_body(ctx.functionBody()),
+                    )
+                )
+                return None
+            return self.visitChildren(ctx)
+
+        def visitClassMemberDeclaration(self, ctx):
+            if ctx.methodSignature() is None or ctx.functionBody() is None:
+                return None
+            method_sig = ctx.methodSignature()
+            func_sig = method_sig.functionSignature() if method_sig.functionSignature() else None
+            if func_sig is None:
+                return None
+            name = func_sig.identifier().getText() if func_sig.identifier() else "method"
+            sig = context.compact(func_sig)
+            self.functions.append(
+                FunctionControlFlow(
+                    name=name,
+                    signature=sig,
+                    container=".".join(self._containers) if self._containers else None,
+                    steps=self._extract_function_body(ctx.functionBody()),
+                )
+            )
+            return None
+
+        # ── Body / block extraction ─────────────────────────────────────────
+
+        def _extract_function_body(self, function_body_ctx) -> tuple[ControlFlowStep, ...]:
+            if function_body_ctx is None:
+                return ()
+            # Arrow function: async? => expr ;
+            if function_body_ctx.EG() is not None and function_body_ctx.expr() is not None:
+                expr_text = context.compact(function_body_ctx.expr())
+                return (ActionFlowStep(f"=> {expr_text}"),)
+            # Block body: (async*? | sync*)? block
+            if function_body_ctx.block() is not None:
+                return self._extract_block(function_body_ctx.block())
+            return ()
+
+        def _extract_block(self, block_ctx) -> tuple[ControlFlowStep, ...]:
+            if block_ctx is None or block_ctx.statements() is None:
+                return ()
+            return self._extract_statements(block_ctx.statements())
+
+        def _extract_statements(self, statements_ctx) -> tuple[ControlFlowStep, ...]:
+            steps: list[ControlFlowStep] = []
+            for stmt_ctx in statements_ctx.statement():
+                step = self._extract_statement(stmt_ctx)
+                if step is not None:
+                    steps.append(step)
+            return tuple(steps)
+
+        def _extract_statement(self, statement_ctx) -> ControlFlowStep | None:
+            # statement : label* nonLabelledStatement
+            nls = statement_ctx.nonLabelledStatement()
+            if nls is None:
+                return ActionFlowStep(context.compact(statement_ctx))
+            return self._extract_non_labelled_statement(nls)
+
+        def _extract_non_labelled_statement(self, ctx) -> ControlFlowStep | None:
+            if ctx.ifStatement() is not None:
+                return self._extract_if_statement(ctx.ifStatement())
+            if ctx.whileStatement() is not None:
+                return self._extract_while_statement(ctx.whileStatement())
+            if ctx.doStatement() is not None:
+                return self._extract_do_statement(ctx.doStatement())
+            if ctx.forStatement() is not None:
+                return self._extract_for_statement(ctx.forStatement())
+            if ctx.switchStatement() is not None:
+                return self._extract_switch_statement(ctx.switchStatement())
+            if ctx.tryStatement() is not None:
+                return self._extract_try_statement(ctx.tryStatement())
+            if ctx.block() is not None:
+                steps = self._extract_block(ctx.block())
+                if steps:
+                    # Flatten bare block inline as an action placeholder
+                    return ActionFlowStep("{ ... }")
+                return None
+            return ActionFlowStep(context.compact(ctx))
+
+        # ── Statement extractors ────────────────────────────────────────────
+
+        def _extract_statement_as_steps(
+            self, statement_ctx
+        ) -> tuple[ControlFlowStep, ...]:
+            """Return the contents of statement as a step tuple.
+
+            If the statement is a bare block, returns its inner steps.
+            Otherwise wraps the single step in a tuple.
+            """
+            if statement_ctx is None:
+                return ()
+            nls = statement_ctx.nonLabelledStatement()
+            if nls is not None and nls.block() is not None:
+                return self._extract_block(nls.block())
+            step = self._extract_statement(statement_ctx)
+            return (step,) if step is not None else ()
+
+        def _extract_if_statement(self, if_ctx) -> IfFlowStep:
+            condition = context.compact(if_ctx.expr())
+            statements = if_ctx.statement()
+            then_steps = self._extract_statement_as_steps(
+                statements[0] if len(statements) > 0 else None
+            )
+            else_steps: tuple[ControlFlowStep, ...] = ()
+            if len(statements) > 1:
+                else_stmt = statements[1]
+                # Check for else-if chain
+                else_nls = else_stmt.nonLabelledStatement()
+                if else_nls is not None and else_nls.ifStatement() is not None:
+                    else_steps = (self._extract_if_statement(else_nls.ifStatement()),)
+                else:
+                    else_steps = self._extract_statement_as_steps(else_stmt)
+            return IfFlowStep(
+                condition=condition or "condition",
+                then_steps=then_steps,
+                else_steps=else_steps,
+            )
+
+        def _extract_while_statement(self, while_ctx) -> WhileFlowStep:
+            condition = context.compact(while_ctx.expr())
+            body_steps = self._extract_statement_as_steps(while_ctx.statement())
+            return WhileFlowStep(condition=condition or "condition", body_steps=body_steps)
+
+        def _extract_do_statement(self, do_ctx) -> DoWhileFlowStep:
+            body_steps = self._extract_statement_as_steps(do_ctx.statement())
+            condition = context.compact(do_ctx.expr())
+            return DoWhileFlowStep(condition=condition or "condition", body_steps=body_steps)
+
+        def _extract_for_statement(self, for_ctx) -> ForInFlowStep:
+            header = context.compact(for_ctx.forLoopParts())
+            body_steps = self._extract_statement_as_steps(for_ctx.statement())
+            return ForInFlowStep(header=header or "item in collection", body_steps=body_steps)
+
+        def _extract_switch_statement(self, switch_ctx) -> SwitchFlowStep:
+            expression = context.compact(switch_ctx.expr())
+            cases: list[SwitchCaseFlow] = []
+            for case_ctx in (switch_ctx.switchCase() or []):
+                label = f"case {context.compact(case_ctx.expr())}"
+                steps = self._extract_statements(case_ctx.statements())
+                cases.append(SwitchCaseFlow(label=label, steps=steps))
+            if switch_ctx.defaultCase() is not None:
+                steps = self._extract_statements(switch_ctx.defaultCase().statements())
+                cases.append(SwitchCaseFlow(label="default", steps=steps))
+            return SwitchFlowStep(expression=expression, cases=tuple(cases))
+
+        def _extract_try_statement(self, try_ctx) -> TryCatchFlowStep:
+            body_steps = self._extract_block(try_ctx.block())
+            catches: list[CatchClauseFlow] = []
+            for on_part_ctx in (try_ctx.onPart() or []):
+                if on_part_ctx.ON_() is not None:
+                    type_text = context.compact(on_part_ctx.typeNotVoid())
+                    catch_part = on_part_ctx.catchPart()
+                    if catch_part is not None:
+                        var_text = context.compact(catch_part)
+                        pattern = f"on {type_text} {var_text}"
+                    else:
+                        pattern = f"on {type_text}"
+                elif on_part_ctx.catchPart() is not None:
+                    pattern = context.compact(on_part_ctx.catchPart())
+                else:
+                    pattern = "catch"
+                steps = self._extract_block(on_part_ctx.block())
+                catches.append(CatchClauseFlow(pattern=pattern, steps=steps))
+            finally_steps: tuple[ControlFlowStep, ...] = ()
+            if try_ctx.finallyPart() is not None:
+                finally_steps = self._extract_block(try_ctx.finallyPart().block())
+            return TryCatchFlowStep(
+                body_steps=body_steps,
+                catches=tuple(catches),
+                finally_steps=finally_steps,
+            )
+
+        # ── Utilities ───────────────────────────────────────────────────────
+
+        def _with_container(self, name: str, callback):
+            self._containers.append(name)
+            try:
+                return callback()
+            finally:
+                self._containers.pop()
+
+    return DartControlFlowVisitor

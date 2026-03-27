@@ -23,13 +23,13 @@ class IfFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
-class GuardFlowStep(ControlFlowStep):
+class WhileFlowStep(ControlFlowStep):
     condition: str
-    else_steps: tuple[ControlFlowStep, ...]
+    body_steps: tuple[ControlFlowStep, ...]
 
 
 @dataclass(frozen=True, slots=True)
-class WhileFlowStep(ControlFlowStep):
+class DoWhileFlowStep(ControlFlowStep):
     condition: str
     body_steps: tuple[ControlFlowStep, ...]
 
@@ -37,12 +37,6 @@ class WhileFlowStep(ControlFlowStep):
 @dataclass(frozen=True, slots=True)
 class ForInFlowStep(ControlFlowStep):
     header: str
-    body_steps: tuple[ControlFlowStep, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class RepeatWhileFlowStep(ControlFlowStep):
-    condition: str
     body_steps: tuple[ControlFlowStep, ...]
 
 
@@ -65,14 +59,10 @@ class CatchClauseFlow:
 
 
 @dataclass(frozen=True, slots=True)
-class DoCatchFlowStep(ControlFlowStep):
+class TryCatchFlowStep(ControlFlowStep):
     body_steps: tuple[ControlFlowStep, ...]
     catches: tuple[CatchClauseFlow, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class DeferFlowStep(ControlFlowStep):
-    body_steps: tuple[ControlFlowStep, ...]
+    finally_steps: tuple[ControlFlowStep, ...]
 
 
 @dataclass(frozen=True, slots=True)

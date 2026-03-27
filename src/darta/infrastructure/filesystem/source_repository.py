@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from swifta.domain.errors import InputValidationError, SourceAccessError
-from swifta.domain.model import SourceUnit, SourceUnitId
-from swifta.domain.ports import SourceRepository
+from darta.domain.errors import InputValidationError, SourceAccessError
+from darta.domain.model import SourceUnit, SourceUnitId
+from darta.domain.ports import SourceRepository
 
 
 class FileSystemSourceRepository(SourceRepository):
@@ -16,21 +16,21 @@ class FileSystemSourceRepository(SourceRepository):
             raise InputValidationError(f"source file does not exist: {source_path}")
         if not source_path.is_file():
             raise InputValidationError(f"path is not a file: {source_path}")
-        if source_path.suffix != ".swift":
-            raise InputValidationError(f"expected a .swift file, got: {source_path}")
+        if source_path.suffix != ".dart":
+            raise InputValidationError(f"expected a .dart file, got: {source_path}")
 
         return self._load_source_unit(source_path)
 
-    def list_swift_sources(self, root_path: str) -> tuple[SourceUnit, ...]:
+    def list_dart_sources(self, root_path: str) -> tuple[SourceUnit, ...]:
         root = Path(root_path).expanduser().resolve()
         if not root.exists():
             raise InputValidationError(f"source directory does not exist: {root}")
         if not root.is_dir():
             raise InputValidationError(f"path is not a directory: {root}")
 
-        source_paths = tuple(sorted(path for path in root.rglob("*.swift") if path.is_file()))
+        source_paths = tuple(sorted(path for path in root.rglob("*.dart") if path.is_file()))
         if not source_paths:
-            raise InputValidationError(f"no .swift files found under: {root}")
+            raise InputValidationError(f"no .dart files found under: {root}")
 
         return tuple(self._load_source_unit(path) for path in source_paths)
 

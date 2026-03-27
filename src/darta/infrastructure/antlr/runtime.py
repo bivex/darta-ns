@@ -10,13 +10,13 @@ from antlr4.atn.PredictionMode import PredictionMode
 from antlr4.error.ErrorStrategy import BailErrorStrategy
 from antlr4.error.Errors import ParseCancellationException
 
-from swifta.domain.errors import GeneratedParserNotAvailableError
-from swifta.domain.model import GrammarVersion, SyntaxDiagnostic
-from swifta.infrastructure.antlr.error_listener import CollectingErrorListener
+from darta.domain.errors import GeneratedParserNotAvailableError
+from darta.domain.model import GrammarVersion, SyntaxDiagnostic
+from darta.infrastructure.antlr.error_listener import CollectingErrorListener
 
 
 ANTLR_GRAMMAR_VERSION = GrammarVersion(
-    "antlr4@4.13.2+python-compat:antlr/grammars-v4/swift/swift5 (targets Swift 5.4)"
+    "antlr4@4.13.2+python:antlr/grammars-v4/dart2 (targets Dart 2.15)"
 )
 
 
@@ -38,24 +38,24 @@ class ParseTreeResult:
 def load_generated_types() -> GeneratedParserTypes:
     try:
         lexer_module = importlib.import_module(
-            "swifta.infrastructure.antlr.generated.swift5.Swift5Lexer"
+            "darta.infrastructure.antlr.generated.dart2.Dart2Lexer"
         )
         parser_module = importlib.import_module(
-            "swifta.infrastructure.antlr.generated.swift5.Swift5Parser"
+            "darta.infrastructure.antlr.generated.dart2.Dart2Parser"
         )
         visitor_module = importlib.import_module(
-            "swifta.infrastructure.antlr.generated.swift5.Swift5ParserVisitor"
+            "darta.infrastructure.antlr.generated.dart2.Dart2ParserVisitor"
         )
     except ModuleNotFoundError as error:
         raise GeneratedParserNotAvailableError(
-            "generated Swift parser artifacts are missing; run "
-            "`uv run python scripts/generate_swift_parser.py` first"
+            "generated Dart parser artifacts are missing; run "
+            "`uv run python scripts/generate_dart_parser.py` first"
         ) from error
 
     return GeneratedParserTypes(
-        lexer_type=lexer_module.Swift5Lexer,
-        parser_type=parser_module.Swift5Parser,
-        visitor_type=visitor_module.Swift5ParserVisitor,
+        lexer_type=lexer_module.Dart2Lexer,
+        parser_type=parser_module.Dart2Parser,
+        visitor_type=visitor_module.Dart2ParserVisitor,
     )
 
 
@@ -65,18 +65,18 @@ def parse_source_text(
 ) -> ParseTreeResult:
     return _parse_entry_text(
         source_text,
-        entry_rule_name="top_level",
+        entry_rule_name="compilationUnit",
         generated_types=generated_types,
     )
 
 
-def parse_code_block_text(
+def parse_block_text(
     source_text: str,
     generated_types: GeneratedParserTypes | None = None,
 ) -> ParseTreeResult:
     return _parse_entry_text(
         source_text,
-        entry_rule_name="code_block",
+        entry_rule_name="block",
         generated_types=generated_types,
     )
 

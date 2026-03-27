@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-from swifta.domain.errors import (
+from darta.domain.errors import (
     DuplicateSourceUnitError,
     EmptyParsingJobError,
     ParsingJobAlreadyCompletedError,
@@ -33,9 +33,8 @@ class StructuralElementKind(StrEnum):
     VARIABLE = "variable"
     FUNCTION = "function"
     ENUM = "enum"
-    STRUCT = "struct"
     CLASS = "class"
-    PROTOCOL = "protocol"
+    MIXIN = "mixin"
     EXTENSION = "extension"
 
 

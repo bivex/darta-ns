@@ -6,21 +6,19 @@ from html import escape
 from math import ceil
 import re
 
-from swifta.domain.control_flow import (
+from darta.domain.control_flow import (
     ActionFlowStep,
     ControlFlowDiagram,
     ControlFlowStep,
-    DeferFlowStep,
-    DoCatchFlowStep,
+    DoWhileFlowStep,
     ForInFlowStep,
-    GuardFlowStep,
     IfFlowStep,
-    RepeatWhileFlowStep,
     SwitchCaseFlow,
     SwitchFlowStep,
+    TryCatchFlowStep,
     WhileFlowStep,
 )
-from swifta.domain.ports import NassiDiagramRenderer
+from darta.domain.ports import NassiDiagramRenderer
 
 
 class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
@@ -91,9 +89,8 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         /* Block fills */
         --loop-fill:   #132033;
         --switch-fill: #102529;
-        --guard-fill:  #23190c;
         --do-fill:     #1a1624;
-        --defer-fill:  #241d0d;
+        --try-fill:    #241d0d;
         --yes-fill:    #102217;
         --no-fill:     #251019;
         --action-fill: var(--surface-2);
@@ -293,26 +290,20 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         overflow-wrap: anywhere;
       }}
       /* ── Block type colours ── */
-      .ns-guard   {{ background: var(--guard-fill); }}
       .ns-loop,
-      .ns-repeat  {{ background: var(--loop-fill); }}
-      .ns-switch  {{ background: var(--switch-fill); }}
-      .ns-do-catch {{ background: var(--do-fill); }}
-      .ns-defer   {{ background: var(--defer-fill); }}
+      .ns-do-while {{ background: var(--loop-fill); }}
+      .ns-switch   {{ background: var(--switch-fill); }}
+      .ns-try-catch {{ background: var(--try-fill); }}
 
-      .ns-guard   > .ns-header {{ background: var(--orange-dim); color: var(--orange); }}
-      .ns-switch  > .ns-header,
+      .ns-switch   > .ns-header,
       .case-title              {{ background: var(--teal-dim);   color: var(--teal);   }}
-      .ns-do-catch > .ns-header {{ background: var(--purple-dim); color: var(--purple); }}
-      .ns-defer   > .ns-header {{ background: var(--amber-dim);  color: var(--amber);  }}
+      .ns-try-catch > .ns-header {{ background: var(--purple-dim); color: var(--purple); }}
 
       /* Left accent stripes */
       .ns-node.ns-loop,
-      .ns-node.ns-repeat  {{ border-left: 3px solid var(--blue); }}
-      .ns-node.ns-guard   {{ border-left: 3px solid var(--orange); }}
-      .ns-node.ns-switch  {{ border-left: 3px solid var(--teal); }}
-      .ns-node.ns-do-catch {{ border-left: 3px solid var(--purple); }}
-      .ns-node.ns-defer   {{ border-left: 3px solid var(--amber); }}
+      .ns-node.ns-do-while {{ border-left: 3px solid var(--blue); }}
+      .ns-node.ns-switch   {{ border-left: 3px solid var(--teal); }}
+      .ns-node.ns-try-catch {{ border-left: 3px solid var(--purple); }}
 
       /* Depth tinting */
       .ns-depth-1 > .ns-node {{ background-color: rgba(255,255,255,0.012); }}
@@ -535,7 +526,7 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
     <div class="viewer">
       <div class="titlebar">
         <div class="titlebar-icon"></div>
-        <span class="titlebar-text">Swifta · NSD Viewer</span>
+        <span class="titlebar-text">Darta · NSD Viewer</span>
       </div>
       <div class="toolbar">
         <span class="toolbar-label">Nassi-Shneiderman</span>
@@ -601,48 +592,45 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 f"{trailing_note}"
                 "</div>"
             )
-        if isinstance(step, GuardFlowStep):
-            return (
-                '<div class="ns-node ns-guard">'
-                f"{self._render_header(f'Guard {step.condition}')}"
-                '<div class="ns-branch ns-branch-no"><div class="ns-branch-title">Failure / exit</div>'
-                f"{self._render_sequence(step.else_steps, depth=depth + 1)}"
-                "</div>"
-                "</div>"
-            )
         if isinstance(step, WhileFlowStep):
             return self._render_single_body(f"While {step.condition}", step.body_steps, depth=depth)
-        if isinstance(step, ForInFlowStep):
-            return self._render_single_body(f"For {step.header}", step.body_steps, depth=depth)
-        if isinstance(step, RepeatWhileFlowStep):
+        if isinstance(step, DoWhileFlowStep):
             return (
-                '<div class="ns-node ns-repeat">'
-                f"{self._render_header('Repeat')}"
+                '<div class="ns-node ns-do-while">'
+                f"{self._render_header('Do')}"
                 f"{self._render_sequence(step.body_steps, depth=depth + 1)}"
                 f"{self._render_footer(f'While {step.condition}')}"
                 "</div>"
             )
+        if isinstance(step, ForInFlowStep):
+            return self._render_single_body(f"For {step.header}", step.body_steps, depth=depth)
         if isinstance(step, SwitchFlowStep):
             return self._render_switch(step, depth=depth)
-        if isinstance(step, DoCatchFlowStep):
+        if isinstance(step, TryCatchFlowStep):
             catches = "".join(
                 self._render_single_body(
                     f"Catch {catch.pattern}",
                     catch.steps,
                     depth=depth + 1,
-                    css_class="ns-do-catch",
+                    css_class="ns-try-catch",
                 )
                 for catch in step.catches
             )
+            finally_html = ""
+            if step.finally_steps:
+                finally_html = self._render_single_body(
+                    "Finally",
+                    step.finally_steps,
+                    depth=depth + 1,
+                    css_class="ns-try-catch",
+                )
             return (
-                '<div class="ns-node ns-do-catch">'
-                f"{self._render_header('Do')}"
+                '<div class="ns-node ns-try-catch">'
+                f"{self._render_header('Try')}"
                 f"{self._render_sequence(step.body_steps, depth=depth + 1)}"
-                f'<div class="ns-catches">{catches}</div>'
+                f'<div class="ns-catches">{catches}{finally_html}</div>'
                 "</div>"
             )
-        if isinstance(step, DeferFlowStep):
-            return self._render_single_body("Defer", step.body_steps, depth=depth, css_class="ns-defer")
         raise TypeError(f"unsupported step type: {type(step)!r}")
 
     def _render_case(self, case: SwitchCaseFlow) -> str:

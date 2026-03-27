@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import uuid4
 
-from swifta.application.dto import (
+from darta.application.dto import (
     REPORT_SCHEMA_VERSION,
     ParseDirectoryCommand,
     ParseFileCommand,
@@ -16,26 +16,26 @@ from swifta.application.dto import (
     StructuralElementDTO,
     SyntaxDiagnosticDTO,
 )
-from swifta.domain.events import (
+from darta.domain.events import (
     ParsingJobCompleted,
     ParsingJobStarted,
     SourceUnitParsed,
     SourceUnitParsingFailed,
 )
-from swifta.domain.model import ParseOutcome, ParseStatus, ParsingJob, SourceUnit
-from swifta.domain.ports import (
+from darta.domain.model import ParseOutcome, ParseStatus, ParsingJob, SourceUnit
+from darta.domain.ports import (
     Clock,
     DomainEventPublisher,
     ParsingJobRepository,
     SourceRepository,
-    SwiftSyntaxParser,
+    DartSyntaxParser,
 )
 
 
 @dataclass(slots=True)
 class ParsingJobService:
     source_repository: SourceRepository
-    parser: SwiftSyntaxParser
+    parser: DartSyntaxParser
     event_publisher: DomainEventPublisher
     clock: Clock
     job_repository: ParsingJobRepository
@@ -45,7 +45,7 @@ class ParsingJobService:
         return self._run_job((source_unit,))
 
     def parse_directory(self, command: ParseDirectoryCommand) -> ParsingJobReportDTO:
-        source_units = tuple(self.source_repository.list_swift_sources(command.root_path))
+        source_units = tuple(self.source_repository.list_dart_sources(command.root_path))
         return self._run_job(source_units)
 
     def _run_job(self, source_units: tuple[SourceUnit, ...]) -> ParsingJobReportDTO:
