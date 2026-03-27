@@ -58,6 +58,14 @@ class ReturnFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class PatternDeclarationFlowStep(ControlFlowStep):
+    """Pattern variable declaration like `var (a, b) = pair` or `final Point(:x) = p`."""
+    keyword: str  # "var" or "final"
+    pattern: str
+    expression: str
+
+
+@dataclass(frozen=True, slots=True)
 class IfFlowStep(ControlFlowStep):
     condition: str
     then_steps: tuple[ControlFlowStep, ...]

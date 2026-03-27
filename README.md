@@ -27,7 +27,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `assert(cond, msg?)` | ✅ | ✅ amber accent + `assert` badge |
 | `break` / `break label` | ✅ | ✅ orange accent + `break` badge |
 | `continue` / `continue label` | ✅ | ✅ orange accent + `continue` badge |
-| `var (a, b) = expr` pattern variable | ✅ | ⬜ rendered as plain action |
+| `var (a, b) = expr` pattern variable | ✅ | ✅ blue accent + pattern destructuring |
 
 ### Function Discovery
 
@@ -144,7 +144,6 @@ Four explicit layers:
 ### Near-term
 
 - 📦 **`switch` expression** — Dart 3 `final x = switch(v) { p => e }` as an inline expression step
-- 🔀 **Pattern variable declarations** — `var (a, b) = pair` / `var Point(:x, :y) = p` with visual distinction
 - 🔁 **Local function inlining** — expand nested `void helper() {}` bodies inline in parent diagram
 
 ### Medium-term

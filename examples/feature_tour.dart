@@ -408,6 +408,20 @@ String describeJson(Object json) {
   return 'unknown JSON type';
 }
 
+// ── 21. Pattern variable declarations (Dart 3) ────────────────────────────────
+
+(String, int) parsePair(Object obj) {
+  if (obj case (String s, int n)) {
+    return (s, n);
+  }
+  return ('unknown', 0);
+}
+
+(int x, int y) getCoordinates(Object data) {
+  var (x, y) = data;
+  return (x, y);
+}
+
 // Stubs so the file compiles independently.
 double _cos(double r) => r;
 double _sin(double r) => r;

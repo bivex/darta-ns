@@ -18,6 +18,7 @@ from darta.domain.control_flow import (
     ForInFlowStep,
     FunctionControlFlow,
     IfFlowStep,
+    PatternDeclarationFlowStep,
     RethrowFlowStep,
     ReturnFlowStep,
     SwitchCaseFlow,
@@ -368,6 +369,16 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 if text.startswith("throw "):
                     return ThrowFlowStep(text[len("throw "):].rstrip(";").strip())
                 return ActionFlowStep(text)
+            if ctx.localVariableDeclaration() is not None:
+                lvd = ctx.localVariableDeclaration()
+                # Check for patternVariableDeclaration branch
+                if hasattr(lvd, "patternVariableDeclaration") and lvd.patternVariableDeclaration() is not None:
+                    pv = lvd.patternVariableDeclaration()
+                    opp = pv.outerPatternDeclarationPrefix()
+                    keyword = "var" if opp.VAR() is not None else "final"
+                    pattern = context.compact(opp.outerPattern())
+                    expr = context.compact(pv.expression())
+                    return PatternDeclarationFlowStep(keyword=keyword, pattern=pattern, expression=expr)
             if ctx.localFunctionDeclaration() is not None:
                 lfd = ctx.localFunctionDeclaration()
                 func_sig = lfd.functionSignature() if hasattr(lfd, "functionSignature") else None

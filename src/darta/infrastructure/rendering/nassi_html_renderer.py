@@ -17,6 +17,7 @@ from darta.domain.control_flow import (
     DoWhileFlowStep,
     ForInFlowStep,
     IfFlowStep,
+    PatternDeclarationFlowStep,
     RethrowFlowStep,
     ReturnFlowStep,
     SwitchCaseFlow,
@@ -334,6 +335,8 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-throw .ns-label {{ color: var(--red); }}
       .ns-return {{ background: var(--return-fill); border-left: 3px solid var(--teal); }}
       .ns-return .ns-label {{ color: var(--teal); }}
+      .ns-pattern-decl {{ background: #0e1f2e; border-left: 3px solid var(--blue); }}
+      .ns-pattern-decl .ns-label {{ color: var(--blue); }}
       .step-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
         text-transform: uppercase; opacity: .7; margin-right: 6px; vertical-align: middle; }}
       .ns-await .step-tag {{ color: var(--purple); }}
@@ -343,6 +346,7 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-break .step-tag, .ns-continue .step-tag {{ color: var(--orange); }}
       .ns-throw .step-tag {{ color: var(--red); }}
       .ns-return .step-tag {{ color: var(--teal); }}
+      .ns-pattern-decl .step-tag {{ color: var(--blue); }}
 
       /* Depth tinting */
       .ns-depth-1 > .ns-node {{ background-color: rgba(255,255,255,0.012); }}
@@ -671,6 +675,15 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 f'<div class="ns-label" aria-label="Return{expr}">'
                 '<span class="step-tag">return</span>'
                 f'<code class="action-text">{escape(step.expression or "")}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, PatternDeclarationFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-pattern-decl">'
+                f'<div class="ns-label" aria-label="{escape(step.keyword)} {escape(step.pattern)} = {escape(step.expression)}">'
+                f'<span class="step-tag">{escape(step.keyword)}</span>'
+                f'<code class="action-text">{escape(step.pattern)} = {escape(step.expression)}</code>'
                 "</div>"
                 "</div>"
             )
