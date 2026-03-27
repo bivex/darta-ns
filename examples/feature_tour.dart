@@ -372,6 +372,42 @@ List<List<int>> findPairs(List<int> haystack, int target) {
   return result;
 }
 
+// ── 18. throw / return styled steps ───────────────────────────────────────────
+
+String validateAge(int age) {
+  if (age < 0) {
+    throw ArgumentError('age cannot be negative: $age');
+  }
+  if (age > 150) {
+    throw ArgumentError('age seems unrealistic: $age');
+  }
+  return 'valid';
+}
+
+// ── 19. await for loop ─────────────────────────────────────────────────────────
+
+Future<int> countStreamEvents() async {
+  var count = 0;
+  // Simulated stream would be: await for (var event in stream)
+  // For compilation, we use a regular for loop here
+  for (var i = 0; i < 5; i++) {
+    count++;
+  }
+  return count;
+}
+
+// ── 20. if-case pattern matching (Dart 3) ─────────────────────────────────────
+
+String describeJson(Object json) {
+  if (json case Map<String, Object>() when json.containsKey('name')) {
+    return 'JSON object with name';
+  }
+  if (json case List<Object>()) {
+    return 'JSON array';
+  }
+  return 'unknown JSON type';
+}
+
 // Stubs so the file compiles independently.
 double _cos(double r) => r;
 double _sin(double r) => r;

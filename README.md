@@ -9,20 +9,20 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Construct | Extracted | Diagram |
 |---|---|---|
 | `if` / `else if` / `else` | ✅ | ✅ NS triangle with Yes/No branches |
-| `if (x case Pattern when guard)` Dart 3 | ⚠️ | ⚠️ shows expr only, case+guard dropped |
+| `if (x case Pattern when guard)` Dart 3 | ✅ | ✅ full pattern+guard in condition |
 | `while` | ✅ | ✅ loop block |
 | `do … while` | ✅ | ✅ body-first loop block |
 | `for (init; cond; incr)` | ✅ | ✅ for block |
 | `for (x in collection)` | ✅ | ✅ for block |
-| `await for (x in stream)` | ✅ | ⚠️ extracted but no async accent |
+| `await for (x in stream)` | ✅ | ✅ purple accent + "Await for" header |
 | `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
 | `switch(v) { p => e }` expression (Dart 3) | ⬜ | ⬜ rendered as plain action |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
-| `throw expr` | ✅ | ⬜ rendered as plain action |
+| `throw expr` | ✅ | ✅ red accent + `throw` badge |
 | `await expr` | ✅ | ✅ purple accent + `await` badge |
 | `yield` / `yield*` | ✅ | ✅ green accent + `yield` / `yield*` badge |
-| `return expr` | ✅ | ⬜ rendered as plain action, no terminal shape |
+| `return expr` | ✅ | ✅ teal accent + `return` badge |
 | `rethrow` | ✅ | ✅ red accent + `rethrow` badge |
 | `assert(cond, msg?)` | ✅ | ✅ amber accent + `assert` badge |
 | `break` / `break label` | ✅ | ✅ orange accent + `break` badge |

@@ -19,8 +19,10 @@ from darta.domain.control_flow import (
     FunctionControlFlow,
     IfFlowStep,
     RethrowFlowStep,
+    ReturnFlowStep,
     SwitchCaseFlow,
     SwitchFlowStep,
+    ThrowFlowStep,
     TryCatchFlowStep,
     WhileFlowStep,
     YieldFlowStep,
@@ -337,7 +339,9 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if ctx.rethrowStatement() is not None:
                 return RethrowFlowStep()
             if ctx.returnStatement() is not None:
-                return ActionFlowStep(context.compact(ctx.returnStatement()))
+                rs = ctx.returnStatement()
+                expr = rs.expression()
+                return ReturnFlowStep(expression=context.compact(expr) if expr else None)
             if ctx.yieldStatement() is not None:
                 expr = context.compact(ctx.yieldStatement().expression())
                 return YieldFlowStep(expression=expr, is_each=False)
@@ -361,6 +365,8 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 text = context.compact(ctx.expressionStatement())
                 if text.startswith("await "):
                     return AwaitFlowStep(text[len("await "):].rstrip(";").strip())
+                if text.startswith("throw "):
+                    return ThrowFlowStep(text[len("throw "):].rstrip(";").strip())
                 return ActionFlowStep(text)
             if ctx.localFunctionDeclaration() is not None:
                 lfd = ctx.localFunctionDeclaration()
@@ -389,9 +395,20 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             return (step,) if step is not None else ()
 
         def _extract_if_statement(self, if_ctx) -> IfFlowStep:
-            # Dart3: ifCondition contains the expression
+            # Dart3: ifCondition contains expression and optional CASE guardedPattern
             if_cond = if_ctx.ifCondition()
-            condition = context.compact(if_cond.expression()) if if_cond is not None else "condition"
+            if if_cond is not None:
+                condition = context.compact(if_cond.expression())
+                # Check for "case Pattern when guard" suffix
+                if if_cond.CASE() is not None and if_cond.guardedPattern() is not None:
+                    gp = if_cond.guardedPattern()
+                    pattern = context.compact(gp.pattern())
+                    condition += f" case {pattern}"
+                    if gp.WHEN() is not None and gp.expression() is not None:
+                        guard = context.compact(gp.expression())
+                        condition += f" when {guard}"
+            else:
+                condition = "condition"
             statements = if_ctx.statement()
             then_steps = self._extract_statement_as_steps(
                 statements[0] if len(statements) > 0 else None
@@ -422,9 +439,10 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             return DoWhileFlowStep(condition=condition or "condition", body_steps=body_steps)
 
         def _extract_for_statement(self, for_ctx) -> ForInFlowStep:
+            is_await = for_ctx.AWAIT() is not None
             header = context.compact(for_ctx.forLoopParts())
             body_steps = self._extract_statement_as_steps(for_ctx.statement())
-            return ForInFlowStep(header=header or "item in collection", body_steps=body_steps)
+            return ForInFlowStep(header=header or "item in collection", is_await=is_await, body_steps=body_steps)
 
         def _extract_switch_statement(self, switch_ctx) -> SwitchFlowStep:
             expression = context.compact(switch_ctx.expression())

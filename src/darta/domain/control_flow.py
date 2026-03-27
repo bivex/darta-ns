@@ -48,6 +48,16 @@ class ContinueFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class ThrowFlowStep(ControlFlowStep):
+    expression: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReturnFlowStep(ControlFlowStep):
+    expression: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class IfFlowStep(ControlFlowStep):
     condition: str
     then_steps: tuple[ControlFlowStep, ...]
@@ -69,6 +79,7 @@ class DoWhileFlowStep(ControlFlowStep):
 @dataclass(frozen=True, slots=True)
 class ForInFlowStep(ControlFlowStep):
     header: str
+    is_await: bool  # True for "await for"
     body_steps: tuple[ControlFlowStep, ...]
 
 

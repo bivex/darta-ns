@@ -18,8 +18,10 @@ from darta.domain.control_flow import (
     ForInFlowStep,
     IfFlowStep,
     RethrowFlowStep,
+    ReturnFlowStep,
     SwitchCaseFlow,
     SwitchFlowStep,
+    ThrowFlowStep,
     TryCatchFlowStep,
     WhileFlowStep,
     YieldFlowStep,
@@ -101,6 +103,8 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         --yield-fill:  #0f2820;
         --assert-fill: #251f0a;
         --jump-fill:   #1a1014;
+        --throw-fill:  #24100f;
+        --return-fill: #0e2b2e;
         --yes-fill:    #102217;
         --no-fill:     #251019;
         --action-fill: var(--surface-2);
@@ -326,6 +330,10 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-break .ns-label {{ color: var(--orange); }}
       .ns-continue {{ background: var(--jump-fill); border-left: 3px solid var(--orange); }}
       .ns-continue .ns-label {{ color: var(--orange); }}
+      .ns-throw {{ background: var(--throw-fill); border-left: 3px solid var(--red); }}
+      .ns-throw .ns-label {{ color: var(--red); }}
+      .ns-return {{ background: var(--return-fill); border-left: 3px solid var(--teal); }}
+      .ns-return .ns-label {{ color: var(--teal); }}
       .step-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
         text-transform: uppercase; opacity: .7; margin-right: 6px; vertical-align: middle; }}
       .ns-await .step-tag {{ color: var(--purple); }}
@@ -333,6 +341,8 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-assert .step-tag {{ color: var(--amber); }}
       .ns-rethrow .step-tag {{ color: var(--red); }}
       .ns-break .step-tag, .ns-continue .step-tag {{ color: var(--orange); }}
+      .ns-throw .step-tag {{ color: var(--red); }}
+      .ns-return .step-tag {{ color: var(--teal); }}
 
       /* Depth tinting */
       .ns-depth-1 > .ns-node {{ background-color: rgba(255,255,255,0.012); }}
@@ -645,6 +655,25 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 "</div>"
                 "</div>"
             )
+        if isinstance(step, ThrowFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-throw">'
+                f'<div class="ns-label" aria-label="Throw {escape(step.expression)}">'
+                '<span class="step-tag">throw</span>'
+                f'<code class="action-text">{escape(step.expression)}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, ReturnFlowStep):
+            expr = f" {escape(step.expression)}" if step.expression else ""
+            return (
+                '<div class="ns-node ns-action ns-return">'
+                f'<div class="ns-label" aria-label="Return{expr}">'
+                '<span class="step-tag">return</span>'
+                f'<code class="action-text">{escape(step.expression or "")}</code>'
+                "</div>"
+                "</div>"
+            )
         if isinstance(step, ActionFlowStep):
             return (
                 '<div class="ns-node ns-action">'
@@ -690,7 +719,9 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 "</div>"
             )
         if isinstance(step, ForInFlowStep):
-            return self._render_single_body(f"For {step.header}", step.body_steps, depth=depth)
+            title = f"Await for {step.header}" if step.is_await else f"For {step.header}"
+            css_class = "ns-loop ns-await" if step.is_await else "ns-loop"
+            return self._render_single_body(title, step.body_steps, depth=depth, css_class=css_class)
         if isinstance(step, SwitchFlowStep):
             return self._render_switch(step, depth=depth)
         if isinstance(step, TryCatchFlowStep):
