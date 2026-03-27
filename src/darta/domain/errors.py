@@ -37,6 +37,10 @@ class SourceAccessError(DartaError):
     """Raised when the system cannot access or decode a source file."""
 
 
+class OutputAccessError(DartaError):
+    """Raised when the system cannot create or write output artifacts."""
+
+
 class GeneratedParserNotAvailableError(DartaError):
     """Raised when generated ANTLR artifacts are missing."""
 

@@ -17,7 +17,7 @@ from darta.application.control_flow import (
 )
 from darta.application.dto import ParseDirectoryCommand, ParseFileCommand, ParsingJobReportDTO
 from darta.application.use_cases import ParsingJobService
-from darta.domain.errors import DartaError
+from darta.domain.errors import DartaError, OutputAccessError
 from darta.infrastructure.antlr.control_flow_extractor import AntlrDartControlFlowExtractor
 from darta.infrastructure.antlr.parser_adapter import AntlrDartSyntaxParser
 from darta.infrastructure.filesystem.source_repository import FileSystemSourceRepository
@@ -46,8 +46,7 @@ def main(argv: list[str] | None = None) -> int:
                 BuildNassiDiagramCommand(path=args.path)
             )
             output_path = _resolve_output_path(args.path, args.out)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(document.html, encoding="utf-8")
+            _write_output_text_file(output_path, document.html)
 
             payload = document.to_dict()
             payload["output_path"] = str(output_path)
@@ -60,9 +59,9 @@ def main(argv: list[str] | None = None) -> int:
             output_dir = _resolve_output_directory(args.path, args.out)
             written_diagrams = _write_directory_diagrams(bundle, output_dir)
             index_path = output_dir / "index.html"
-            index_path.write_text(
+            _write_output_text_file(
+                index_path,
                 _render_directory_index(bundle.root_path, written_diagrams),
-                encoding="utf-8",
             )
 
             payload = bundle.to_dict()
@@ -178,15 +177,14 @@ def _write_directory_diagrams(
     output_dir: Path,
 ) -> tuple[_WrittenNassiDiagram, ...]:
     root_path = Path(bundle.root_path)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    _ensure_output_directory(output_dir)
 
     written_diagrams: list[_WrittenNassiDiagram] = []
     for document in bundle.documents:
         source_path = Path(document.source_location)
         relative_source_path = source_path.relative_to(root_path)
         output_path = (output_dir / relative_source_path).with_suffix(".nassi.html")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(document.html, encoding="utf-8")
+        _write_output_text_file(output_path, document.html)
         written_diagrams.append(
             _WrittenNassiDiagram(
                 source_location=document.source_location,
@@ -198,6 +196,36 @@ def _write_directory_diagrams(
             )
         )
     return tuple(written_diagrams)
+
+
+def _ensure_output_directory(path: Path) -> None:
+    current = path
+    while True:
+        if current.exists():
+            if not current.is_dir():
+                raise OutputAccessError(f"output directory path is not a directory: {current}")
+            break
+        if current == current.parent:
+            break
+        current = current.parent
+
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise OutputAccessError(f"unable to create output directory {path}: {error}") from error
+
+
+def _write_output_text_file(path: Path, content: str) -> None:
+    parent = path.parent
+    _ensure_output_directory(parent)
+
+    if path.exists() and path.is_dir():
+        raise OutputAccessError(f"output file path is a directory: {path}")
+
+    try:
+        path.write_text(content, encoding="utf-8")
+    except OSError as error:
+        raise OutputAccessError(f"unable to write output file {path}: {error}") from error
 
 
 def _render_directory_index(

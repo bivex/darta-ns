@@ -225,6 +225,50 @@ def test_nassi_cli_returns_json_error_for_control_flow_failure(
     assert "unable to extract control flow" in payload["error"]
 
 
+def test_nassi_file_cli_returns_json_error_for_invalid_output_path(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    blocking_path = tmp_path / "occupied"
+    blocking_path.write_text("busy", encoding="utf-8")
+
+    exit_code = cli_main_module.main(
+        [
+            "nassi-file",
+            str(ROOT / "tests" / "fixtures" / "control_flow.dart"),
+            "--out",
+            str(blocking_path / "diagram.html"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    payload = json.loads(captured.err)
+    assert "output directory path is not a directory" in payload["error"]
+
+
+def test_nassi_dir_cli_returns_json_error_for_invalid_output_path(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    blocking_path = tmp_path / "occupied"
+    blocking_path.write_text("busy", encoding="utf-8")
+
+    exit_code = cli_main_module.main(
+        [
+            "nassi-dir",
+            str(ROOT / "tests" / "fixtures"),
+            "--out",
+            str(blocking_path / "bundle"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    payload = json.loads(captured.err)
+    assert "output directory path is not a directory" in payload["error"]
+
+
 # ---------------------------------------------------------------------------
 # If depth rendering tests
 # ---------------------------------------------------------------------------
