@@ -12,12 +12,19 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 
 **Control flow extraction**
 
-* if / else-if / else chains
-* while loops
-* do-while loops
+* if / else-if / else chains (including Dart 3 pattern guards)
+* while and do-while loops
 * for and for-in loops
-* switch / case / default blocks
+* switch / case / default (classic and Dart 3 pattern-matching)
 * try / on / catch / finally blocks
+* `await` expressions — visually distinguished from synchronous actions
+
+**Function discovery**
+
+* top-level functions, getters, setters
+* class / mixin / extension / extension-type methods, getters, setters
+* constructors (default, named, factory)
+* operator overloads
 
 **Nassi-Shneiderman diagrams**
 
@@ -26,17 +33,18 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 * classic NS triangles for if-blocks with Yes / No labels
 * depth-coded nested ifs — up to 50 levels with color cycling and Unicode badges ①–㊿
 * side-by-side columns for switch/case blocks
+* `await` steps rendered with a purple accent to mark async boundaries
 * dark Tokyo Night-inspired theme with JetBrains Mono font
 
 ### Screenshots
 
-**Control flow in `session_cipher.dart`** — sequential actions, an if-block with Yes/No branches:
+**`session_cipher.dart`** — constructor entry, sequential actions, and an if-block with Yes/No branches:
 
 ![Basic NS diagram](docs/screenshots/nassi_diagram.png)
 
-**`InMemorySignalProtocolStore`** — arrow-function methods showing compact single-expression rendering:
+**`session_state.dart`** — named constructors and getters extracted as first-class diagram entries:
 
-![Nested depth diagram](docs/screenshots/nested_depth.png)
+![Named constructors and getters](docs/screenshots/nested_depth.png)
 
 ## Architecture
 
