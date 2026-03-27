@@ -138,23 +138,3 @@ Four explicit layers:
 | `presentation` | CLI |
 
 ---
-
-## Roadmap
-
-### Near-term
-
-- 🔁 **Local function inlining** — expand nested `void helper() {}` bodies inline in parent diagram
-
-### Medium-term
-
-- 🌊 **Cascade operator** (`..`) — chain steps grouped into a single block
-- 🗂️ **Symbol graph export** — JSON graph of all types, methods, and their relationships
-- 🖼️ **SVG / PNG export** — headless Chrome or `playwright` render pass
-- 🎨 **Pattern destructuring visual** — show structure of pattern matches in if/switch
-
-### Long-term
-
-- ⚡ **Incremental parsing** — re-parse only changed files in a directory run
-- 🔍 **Semantic passes** — type resolution, call graph, dead code hints on top of the structural model
-- 🌐 **VS Code extension** — live NSD preview panel alongside the editor
-- 📊 **Complexity metrics** — cyclomatic complexity and nesting depth badges per function
