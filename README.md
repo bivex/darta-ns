@@ -20,7 +20,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `switch(v) { p => e }` expression (Dart 3) | ✅ | ✅ teal accent + switch badge in standalone, `return`, and assignment/declaration forms |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
 | `throw expr` | ✅ | ✅ red accent + `throw` badge |
-| `await expr` | ✅ | ✅ purple accent + `await` badge |
+| `await expr` | ✅ | ✅ purple accent + `await` badge in standalone, `return`, assignment, and nested expression forms |
 | `yield` / `yield*` | ✅ | ✅ green accent + `yield` / `yield*` badge |
 | `return expr` | ✅ | ✅ teal accent + `return` badge |
 | `rethrow` | ✅ | ✅ red accent + `rethrow` badge |
@@ -81,7 +81,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 ## Step Backlog
 
 - [x] Render Dart 3 `switch expression` as a first-class step in standalone, `return`, and assignment/declaration forms.
-- [ ] Lift `return await` and other expression-contained `await` forms into explicit await steps instead of plain `return` / `action` labels.
+- [x] Lift `return await` and other expression-contained `await` forms into explicit await steps instead of plain `return` / `action` labels.
 - [ ] Replace the `local function ...` placeholder action with a dedicated local-function step or an inline nested-body rendering mode.
 - [ ] Recognize arrow-body `=> expr` functions through semantic steps like `throw`, `await`, `switch`, and `return`.
 - [ ] Model plain local variable declarations as dedicated declaration steps instead of generic actions.

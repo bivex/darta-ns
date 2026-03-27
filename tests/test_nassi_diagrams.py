@@ -111,6 +111,10 @@ def test_nassi_diagram_renders_constructor_initializers_and_await_assignments() 
     assert "Action y = length * _sin(radians)" in document.html
     assert "Await source" in document.html
     assert "final raw = &lt;await result&gt;;" in document.html
+    assert "Return &lt;await result&gt;" in document.html
+    assert "_recordTag(_tag(&lt;await result&gt;));" in document.html
+    assert "combined += &lt;await result&gt;;" in document.html
+    assert "Return _tag(&lt;await result&gt;)" in document.html
     assert "Await for final event in Stream.fromIterable([1, 2, 3])" in document.html
     assert "return switch (n)" in document.html
     assert "return switch (code)" in document.html
@@ -155,6 +159,40 @@ void emitMode(int mode) {
     assert "return switch (value)" in document.html
     assert "switch (mode)" in document.html
     assert document.html.count('<span class="step-tag">switch</span>') >= 4
+
+
+def test_nassi_diagram_lifts_embedded_awaits_into_explicit_steps(tmp_path: Path) -> None:
+    service = _build_service()
+    source_path = tmp_path / "embedded_awaits.dart"
+    source_path.write_text(
+        """
+Future<String> relay(Future<String> source) async {
+  return await source;
+}
+
+Future<String> decorate(Future<String> source) async {
+  var current = '';
+  final wrapped = tag(await source);
+  logMessage(tag(await source));
+  current += await source;
+  return tag(await source);
+}
+
+String tag(String value) => '[$value]';
+
+void logMessage(String value) {}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    document = service.build_file_diagram(BuildNassiDiagramCommand(path=str(source_path)))
+
+    assert document.html.count("Await source") >= 4
+    assert "Return &lt;await result&gt;" in document.html
+    assert "final wrapped = tag(&lt;await result&gt;);" in document.html
+    assert "logMessage(tag(&lt;await result&gt;));" in document.html
+    assert "current += &lt;await result&gt;;" in document.html
+    assert "Return tag(&lt;await result&gt;)" in document.html
 
 
 def test_nassi_cli_writes_html_file(tmp_path: Path) -> None:

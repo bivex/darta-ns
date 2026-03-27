@@ -151,6 +151,21 @@ Future<List<int>> loadAndFilter(Future<List<int>> source) async {
   return result;
 }
 
+Future<String> relayGreeting(Future<String> source) async {
+  return await source;
+}
+
+Future<String> decorateGreeting(Future<String> source) async {
+  var combined = 'greeting:';
+  final wrapped = _tag(await source);
+  _recordTag(_tag(await source));
+  combined += await source;
+  if (combined.isEmpty) {
+    return wrapped;
+  }
+  return _tag(await source);
+}
+
 // ── 10. Local function declarations ───────────────────────────────────────────
 
 String formatTaggedValue(int value) {
@@ -500,6 +515,8 @@ extension type UserLabel(String value) {
 }
 
 // Stubs so the file compiles independently.
+String _tag(String value) => '[$value]';
+void _recordTag(String value) {}
 double _cos(double r) => r;
 double _sin(double r) => r;
 double _sqrt(double v) => v;
