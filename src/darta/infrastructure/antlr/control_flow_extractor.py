@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from itertools import chain
 
 from darta.domain.control_flow import (
     ActionFlowStep,
@@ -244,7 +245,10 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                         name=name,
                         signature=sig,
                         container=".".join(self._containers) if self._containers else None,
-                        steps=self._extract_function_body(ctx.functionBody()),
+                        steps=self._merge_steps(
+                            self._extract_constructor_initializers(method_sig),
+                            self._extract_function_body(ctx.functionBody()),
+                        ),
                     )
                 )
                 return None
@@ -305,6 +309,34 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 return self._extract_block(function_body_ctx.block())
             return ()
 
+        def _extract_constructor_initializers(self, method_sig) -> tuple[ControlFlowStep, ...]:
+            initializers = method_sig.initializers() if hasattr(method_sig, "initializers") else None
+            if initializers is None:
+                return ()
+
+            steps: list[ControlFlowStep] = []
+            for entry in initializers.initializerListEntry():
+                if entry.fieldInitializer() is not None:
+                    steps.extend(self._extract_field_initializer_steps(entry.fieldInitializer()))
+                    continue
+                if entry.assertion() is not None:
+                    assertion = entry.assertion()
+                    exprs = assertion.expression()
+                    condition = context.compact(exprs[0]) if exprs else ""
+                    message = context.compact(exprs[1]) if len(exprs) > 1 else None
+                    steps.append(AssertFlowStep(condition=condition, message=message))
+                    continue
+                steps.append(ActionFlowStep(context.compact(entry)))
+            return tuple(steps)
+
+        def _extract_field_initializer_steps(self, field_initializer) -> tuple[ControlFlowStep, ...]:
+            initializer_expression = field_initializer.initializerExpression()
+            target = context.compact(field_initializer.identifier())
+            if field_initializer.THIS() is not None:
+                target = f"this.{target}"
+
+            return self._steps_for_assignment_target(target, initializer_expression, include_semicolon=False)
+
         def _extract_block(self, block_ctx) -> tuple[ControlFlowStep, ...]:
             if block_ctx is None or block_ctx.statements() is None:
                 return ()
@@ -313,10 +345,16 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
         def _extract_statements(self, statements_ctx) -> tuple[ControlFlowStep, ...]:
             steps: list[ControlFlowStep] = []
             for stmt_ctx in statements_ctx.statement():
-                step = self._extract_statement(stmt_ctx)
-                if step is not None:
-                    steps.append(step)
+                steps.extend(self._extract_statement_steps(stmt_ctx))
             return tuple(steps)
+
+        def _extract_statement_steps(self, statement_ctx) -> tuple[ControlFlowStep, ...]:
+            step = self._extract_statement(statement_ctx)
+            if step is None:
+                return ()
+            if isinstance(step, tuple):
+                return step
+            return (step,)
 
         def _extract_statement(self, statement_ctx) -> ControlFlowStep | None:
             # statement : label* nonLabelledStatement
@@ -380,6 +418,9 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     expr = expr_stmt.expression()
                     if hasattr(expr, "switchExpression") and expr.switchExpression() is not None:
                         return SwitchExpressionFlowStep(expression=text.rstrip(";").strip())
+                    assignment_steps = self._extract_assignment_with_await(expr)
+                    if assignment_steps:
+                        return assignment_steps
                 return ActionFlowStep(text)
             if ctx.localVariableDeclaration() is not None:
                 lvd = ctx.localVariableDeclaration()
@@ -391,6 +432,15 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     pattern = context.compact(opp.outerPattern())
                     expr = context.compact(pv.expression())
                     return PatternDeclarationFlowStep(keyword=keyword, pattern=pattern, expression=expr)
+                ivd = (
+                    lvd.initializedVariableDeclaration()
+                    if hasattr(lvd, "initializedVariableDeclaration")
+                    else None
+                )
+                if ivd is not None:
+                    steps = self._extract_initialized_variable_declaration_steps(ivd)
+                    if steps:
+                        return steps
             if ctx.localFunctionDeclaration() is not None:
                 lfd = ctx.localFunctionDeclaration()
                 func_sig = lfd.functionSignature() if hasattr(lfd, "functionSignature") else None
@@ -414,8 +464,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             nls = statement_ctx.nonLabelledStatement()
             if nls is not None and nls.block() is not None:
                 return self._extract_block(nls.block())
-            step = self._extract_statement(statement_ctx)
-            return (step,) if step is not None else ()
+            return self._extract_statement_steps(statement_ctx)
 
         def _extract_if_statement(self, if_ctx) -> IfFlowStep:
             # Dart3: ifCondition contains expression and optional CASE guardedPattern
@@ -514,6 +563,67 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                 return callback()
             finally:
                 self._containers.pop()
+
+        def _extract_assignment_with_await(
+            self,
+            expression_ctx,
+        ) -> tuple[ControlFlowStep, ...]:
+            if expression_ctx is None:
+                return ()
+
+            text = context.compact(expression_ctx).rstrip(";").strip()
+            match = re.match(r"^(?P<target>.+?)\s*=\s*await\s+(?P<expr>.+)$", text)
+            if not match:
+                return ()
+
+            target = match.group("target").strip()
+            awaited_expression = match.group("expr").strip()
+            return (
+                AwaitFlowStep(awaited_expression),
+                ActionFlowStep(f"{target} = <await result>;"),
+            )
+
+        def _extract_initialized_variable_declaration_steps(self, declaration_ctx) -> tuple[ControlFlowStep, ...]:
+            declared_identifier = declaration_ctx.declaredIdentifier()
+            base_name = context.compact(declared_identifier)
+            steps: list[ControlFlowStep] = []
+
+            if declaration_ctx.expression() is not None:
+                steps.extend(self._steps_for_assignment_target(base_name, declaration_ctx.expression()))
+
+            for initialized_identifier in declaration_ctx.initializedIdentifier():
+                identifier = context.compact(initialized_identifier.identifier())
+                if initialized_identifier.expression() is not None:
+                    steps.extend(
+                        self._steps_for_assignment_target(identifier, initialized_identifier.expression())
+                    )
+                else:
+                    steps.append(ActionFlowStep(f"{identifier};"))
+
+            return tuple(steps)
+
+        def _steps_for_assignment_target(
+            self,
+            target: str,
+            expression_ctx,
+            *,
+            include_semicolon: bool = True,
+        ) -> tuple[ControlFlowStep, ...]:
+            expression_text = context.compact(expression_ctx)
+            suffix = ";" if include_semicolon else ""
+            if expression_text.startswith("await "):
+                awaited_expression = expression_text[len("await "):].strip()
+                return (
+                    AwaitFlowStep(awaited_expression),
+                    ActionFlowStep(f"{target} = <await result>{suffix}"),
+                )
+            return (ActionFlowStep(f"{target} = {expression_text}{suffix}"),)
+
+        def _merge_steps(
+            self,
+            *step_groups: tuple[ControlFlowStep, ...],
+        ) -> tuple[ControlFlowStep, ...]:
+            return tuple(chain.from_iterable(step_groups))
 
     return DartControlFlowVisitor
 

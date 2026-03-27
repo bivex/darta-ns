@@ -100,6 +100,19 @@ class Direction {
     assert "Direction" in document.html
 
 
+def test_nassi_diagram_renders_constructor_initializers_and_await_assignments() -> None:
+    service = _build_service()
+    document = service.build_file_diagram(
+        BuildNassiDiagramCommand(path=str(ROOT / "examples" / "feature_tour.dart"))
+    )
+
+    assert "Vector2.fromAngle" in document.function_names
+    assert "Action x = length * _cos(radians)" in document.html
+    assert "Action y = length * _sin(radians)" in document.html
+    assert "Await source" in document.html
+    assert "final raw = &lt;await result&gt;;" in document.html
+
+
 def test_nassi_cli_writes_html_file(tmp_path: Path) -> None:
     _ensure_generated_parser()
     output_path = tmp_path / "control_flow.html"
