@@ -303,6 +303,75 @@ extension IntRangeExtension on int {
   }
 }
 
+// ── 14. yield / yield* ───────────────────────────────────────────────────────
+
+Iterable<int> range(int start, int end) sync* {
+  for (var i = start; i < end; i++) {
+    yield i;
+  }
+}
+
+Iterable<int> concatenate(List<Iterable<int>> sources) sync* {
+  for (final src in sources) {
+    yield* src;
+  }
+}
+
+Stream<String> ticker(int count) async* {
+  for (var i = 0; i < count; i++) {
+    await Future.delayed(Duration.zero);
+    yield 'tick $i';
+  }
+}
+
+// ── 15. rethrow ───────────────────────────────────────────────────────────────
+
+String parsePositive(String s) {
+  try {
+    final n = int.parse(s);
+    if (n <= 0) {
+      throw RangeError('must be positive, got $n');
+    }
+    return '$n';
+  } on FormatException {
+    rethrow;
+  } catch (e) {
+    return 'error: $e';
+  }
+}
+
+// ── 16. assert ────────────────────────────────────────────────────────────────
+
+double divide(double a, double b) {
+  assert(b != 0, 'divisor must not be zero');
+  return a / b;
+}
+
+List<int> takeN(List<int> list, int n) {
+  assert(n >= 0);
+  assert(n <= list.length, 'n=$n exceeds list length ${list.length}');
+  return list.sublist(0, n);
+}
+
+// ── 17. break label / continue label ─────────────────────────────────────────
+
+List<List<int>> findPairs(List<int> haystack, int target) {
+  final result = <List<int>>[];
+  outer:
+  for (var i = 0; i < haystack.length; i++) {
+    for (var j = i + 1; j < haystack.length; j++) {
+      if (haystack[i] + haystack[j] == target) {
+        result.add([haystack[i], haystack[j]]);
+        continue outer;
+      }
+      if (result.length >= 10) {
+        break outer;
+      }
+    }
+  }
+  return result;
+}
+
 // Stubs so the file compiles independently.
 double _cos(double r) => r;
 double _sin(double r) => r;
