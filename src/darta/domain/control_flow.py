@@ -104,6 +104,12 @@ class SwitchFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class SwitchExpressionFlowStep(ControlFlowStep):
+    """Dart 3 switch expression: `final x = switch(v) { p => e, ... }`"""
+    expression: str  # The full switch expression text
+
+
+@dataclass(frozen=True, slots=True)
 class CatchClauseFlow:
     pattern: str
     steps: tuple[ControlFlowStep, ...]

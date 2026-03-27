@@ -17,7 +17,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `await for (x in stream)` | ✅ | ✅ purple accent + "Await for" header |
 | `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
-| `switch(v) { p => e }` expression (Dart 3) | ⬜ | ⬜ rendered as plain action |
+| `switch(v) { p => e }` expression (Dart 3) | ✅ | ✅ teal accent + switch badge |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
 | `throw expr` | ✅ | ✅ red accent + `throw` badge |
 | `await expr` | ✅ | ✅ purple accent + `await` badge |
@@ -143,7 +143,6 @@ Four explicit layers:
 
 ### Near-term
 
-- 📦 **`switch` expression** — Dart 3 `final x = switch(v) { p => e }` as an inline expression step
 - 🔁 **Local function inlining** — expand nested `void helper() {}` bodies inline in parent diagram
 
 ### Medium-term

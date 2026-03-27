@@ -21,6 +21,7 @@ from darta.domain.control_flow import (
     RethrowFlowStep,
     ReturnFlowStep,
     SwitchCaseFlow,
+    SwitchExpressionFlowStep,
     SwitchFlowStep,
     ThrowFlowStep,
     TryCatchFlowStep,
@@ -337,6 +338,8 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-return .ns-label {{ color: var(--teal); }}
       .ns-pattern-decl {{ background: #0e1f2e; border-left: 3px solid var(--blue); }}
       .ns-pattern-decl .ns-label {{ color: var(--blue); }}
+      .ns-switch-expr {{ background: #0f2030; border-left: 3px solid var(--teal); }}
+      .ns-switch-expr .ns-label {{ color: var(--teal); }}
       .step-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
         text-transform: uppercase; opacity: .7; margin-right: 6px; vertical-align: middle; }}
       .ns-await .step-tag {{ color: var(--purple); }}
@@ -347,6 +350,7 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-throw .step-tag {{ color: var(--red); }}
       .ns-return .step-tag {{ color: var(--teal); }}
       .ns-pattern-decl .step-tag {{ color: var(--blue); }}
+      .ns-switch-expr .step-tag {{ color: var(--teal); }}
 
       /* Depth tinting */
       .ns-depth-1 > .ns-node {{ background-color: rgba(255,255,255,0.012); }}
@@ -684,6 +688,15 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 f'<div class="ns-label" aria-label="{escape(step.keyword)} {escape(step.pattern)} = {escape(step.expression)}">'
                 f'<span class="step-tag">{escape(step.keyword)}</span>'
                 f'<code class="action-text">{escape(step.pattern)} = {escape(step.expression)}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, SwitchExpressionFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-switch-expr">'
+                f'<div class="ns-label" aria-label="Switch expression {escape(step.expression)}">'
+                '<span class="step-tag">switch</span>'
+                f'<code class="action-text">{escape(step.expression)}</code>'
                 "</div>"
                 "</div>"
             )

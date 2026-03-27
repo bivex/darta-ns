@@ -422,6 +422,26 @@ String describeJson(Object json) {
   return (x, y);
 }
 
+// ── 22. Switch expression (Dart 3) ────────────────────────────────────────────
+
+String classifyNumber(int n) {
+  return switch (n) {
+    < 0 => 'negative',
+    0 => 'zero',
+    > 0 => 'positive',
+  };
+}
+
+String getStatus(int code) {
+  return switch (code) {
+    200 || 201 => 'success',
+    300 || 301 => 'redirect',
+    400 || 404 => 'client error',
+    500 => 'server error',
+    _ => 'unknown',
+  };
+}
+
 // Stubs so the file compiles independently.
 double _cos(double r) => r;
 double _sin(double r) => r;

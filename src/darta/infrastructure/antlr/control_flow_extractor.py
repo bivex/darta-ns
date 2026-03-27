@@ -22,6 +22,7 @@ from darta.domain.control_flow import (
     RethrowFlowStep,
     ReturnFlowStep,
     SwitchCaseFlow,
+    SwitchExpressionFlowStep,
     SwitchFlowStep,
     ThrowFlowStep,
     TryCatchFlowStep,
@@ -368,6 +369,12 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     return AwaitFlowStep(text[len("await "):].rstrip(";").strip())
                 if text.startswith("throw "):
                     return ThrowFlowStep(text[len("throw "):].rstrip(";").strip())
+                # Check for switch expression: switch(v) { ... }
+                expr_stmt = ctx.expressionStatement()
+                if hasattr(expr_stmt, "expression") and expr_stmt.expression() is not None:
+                    expr = expr_stmt.expression()
+                    if hasattr(expr, "switchExpression") and expr.switchExpression() is not None:
+                        return SwitchExpressionFlowStep(expression=text.rstrip(";").strip())
                 return ActionFlowStep(text)
             if ctx.localVariableDeclaration() is not None:
                 lvd = ctx.localVariableDeclaration()
