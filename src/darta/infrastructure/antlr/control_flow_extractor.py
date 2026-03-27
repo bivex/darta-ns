@@ -7,18 +7,23 @@ from dataclasses import dataclass
 
 from darta.domain.control_flow import (
     ActionFlowStep,
+    AssertFlowStep,
     AwaitFlowStep,
+    BreakFlowStep,
     CatchClauseFlow,
+    ContinueFlowStep,
     ControlFlowDiagram,
     ControlFlowStep,
     DoWhileFlowStep,
     ForInFlowStep,
     FunctionControlFlow,
     IfFlowStep,
+    RethrowFlowStep,
     SwitchCaseFlow,
     SwitchFlowStep,
     TryCatchFlowStep,
     WhileFlowStep,
+    YieldFlowStep,
 )
 from darta.domain.model import SourceUnit
 from darta.domain.ports import DartControlFlowExtractor
@@ -330,13 +335,28 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     return ActionFlowStep("{ ... }")
                 return None
             if ctx.rethrowStatement() is not None:
-                return ActionFlowStep("rethrow")
+                return RethrowFlowStep()
             if ctx.returnStatement() is not None:
                 return ActionFlowStep(context.compact(ctx.returnStatement()))
             if ctx.yieldStatement() is not None:
-                return ActionFlowStep(context.compact(ctx.yieldStatement()))
+                expr = context.compact(ctx.yieldStatement().expression())
+                return YieldFlowStep(expression=expr, is_each=False)
             if hasattr(ctx, "yieldEachStatement") and ctx.yieldEachStatement() is not None:
-                return ActionFlowStep(context.compact(ctx.yieldEachStatement()))
+                yes = ctx.yieldEachStatement()
+                expr = context.compact(yes.expression())
+                return YieldFlowStep(expression=expr, is_each=True)
+            if ctx.assertStatement() is not None:
+                ast = ctx.assertStatement().assertion()
+                exprs = ast.expression()
+                cond = context.compact(exprs[0]) if exprs else ""
+                msg = context.compact(exprs[1]) if len(exprs) > 1 else None
+                return AssertFlowStep(condition=cond, message=msg)
+            if ctx.breakStatement() is not None:
+                ident = ctx.breakStatement().identifier()
+                return BreakFlowStep(label=ident.getText() if ident else None)
+            if ctx.continueStatement() is not None:
+                ident = ctx.continueStatement().identifier()
+                return ContinueFlowStep(label=ident.getText() if ident else None)
             if ctx.expressionStatement() is not None:
                 text = context.compact(ctx.expressionStatement())
                 if text.startswith("await "):

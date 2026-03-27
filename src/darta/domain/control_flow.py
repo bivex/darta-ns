@@ -21,6 +21,33 @@ class AwaitFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class YieldFlowStep(ControlFlowStep):
+    expression: str
+    is_each: bool  # True for yield*, False for yield
+
+
+@dataclass(frozen=True, slots=True)
+class RethrowFlowStep(ControlFlowStep):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class AssertFlowStep(ControlFlowStep):
+    condition: str
+    message: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class BreakFlowStep(ControlFlowStep):
+    label: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ContinueFlowStep(ControlFlowStep):
+    label: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class IfFlowStep(ControlFlowStep):
     condition: str
     then_steps: tuple[ControlFlowStep, ...]

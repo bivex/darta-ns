@@ -18,10 +18,11 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
 | `await expr` | ✅ | ✅ purple accent + `await` badge |
-| `yield` / `yield*` | ✅ | ⬜ plain action (no special style) |
-| `rethrow` | ✅ | ⬜ plain action |
-| `assert(cond)` | ✅ | ⬜ plain action |
-| `break label` / `continue label` | ✅ | ⬜ plain action |
+| `yield` / `yield*` | ✅ | ✅ green accent + `yield` / `yield*` badge |
+| `rethrow` | ✅ | ✅ red accent + `rethrow` badge |
+| `assert(cond, msg?)` | ✅ | ✅ amber accent + `assert` badge |
+| `break` / `break label` | ✅ | ✅ orange accent + `break` badge |
+| `continue` / `continue label` | ✅ | ✅ orange accent + `continue` badge |
 
 ### Function Discovery
 
@@ -133,9 +134,7 @@ Four explicit layers:
 
 ### Near-term
 
-- 🎨 **Styled `yield` / `assert` / `rethrow` steps** — distinctive block types instead of plain action boxes
 - 🔁 **Local function recursion** — inline nested `void helper() {}` bodies into the parent diagram
-- 🏷️ **`break label` / `continue label`** — render as structured jump annotations on loop blocks
 - 📦 **`switch` expression** — Dart 3 `final x = switch(v) { ... }` as an inline expression step
 
 ### Medium-term

@@ -8,16 +8,21 @@ import re
 
 from darta.domain.control_flow import (
     ActionFlowStep,
+    AssertFlowStep,
     AwaitFlowStep,
+    BreakFlowStep,
+    ContinueFlowStep,
     ControlFlowDiagram,
     ControlFlowStep,
     DoWhileFlowStep,
     ForInFlowStep,
     IfFlowStep,
+    RethrowFlowStep,
     SwitchCaseFlow,
     SwitchFlowStep,
     TryCatchFlowStep,
     WhileFlowStep,
+    YieldFlowStep,
 )
 from darta.domain.ports import NassiDiagramRenderer
 
@@ -93,6 +98,9 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         --do-fill:     #1a1624;
         --try-fill:    #241d0d;
         --await-fill:  #1c1433;
+        --yield-fill:  #0f2820;
+        --assert-fill: #251f0a;
+        --jump-fill:   #1a1014;
         --yes-fill:    #102217;
         --no-fill:     #251019;
         --action-fill: var(--surface-2);
@@ -308,9 +316,23 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-node.ns-try-catch {{ border-left: 3px solid var(--purple); }}
       .ns-await {{ background: var(--await-fill); border-left: 3px solid var(--purple); }}
       .ns-await .ns-label {{ color: var(--purple); }}
-      .ns-await .async-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
-        text-transform: uppercase; color: var(--purple); opacity: .7;
-        margin-right: 6px; vertical-align: middle; }}
+      .ns-yield {{ background: var(--yield-fill); border-left: 3px solid var(--green); }}
+      .ns-yield .ns-label {{ color: var(--green); }}
+      .ns-assert {{ background: var(--assert-fill); border-left: 3px solid var(--amber); }}
+      .ns-assert .ns-label {{ color: var(--amber); }}
+      .ns-rethrow {{ background: var(--jump-fill); border-left: 3px solid var(--red); }}
+      .ns-rethrow .ns-label {{ color: var(--red); }}
+      .ns-break {{ background: var(--jump-fill); border-left: 3px solid var(--orange); }}
+      .ns-break .ns-label {{ color: var(--orange); }}
+      .ns-continue {{ background: var(--jump-fill); border-left: 3px solid var(--orange); }}
+      .ns-continue .ns-label {{ color: var(--orange); }}
+      .step-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
+        text-transform: uppercase; opacity: .7; margin-right: 6px; vertical-align: middle; }}
+      .ns-await .step-tag {{ color: var(--purple); }}
+      .ns-yield .step-tag {{ color: var(--green); }}
+      .ns-assert .step-tag {{ color: var(--amber); }}
+      .ns-rethrow .step-tag {{ color: var(--red); }}
+      .ns-break .step-tag, .ns-continue .step-tag {{ color: var(--orange); }}
 
       /* Depth tinting */
       .ns-depth-1 > .ns-node {{ background-color: rgba(255,255,255,0.012); }}
@@ -569,8 +591,57 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
             return (
                 '<div class="ns-node ns-action ns-await">'
                 f'<div class="ns-label" aria-label="Await {escape(step.expression)}">'
-                '<span class="async-tag">await</span>'
+                '<span class="step-tag">await</span>'
                 f'<code class="action-text">{escape(step.expression)}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, YieldFlowStep):
+            tag = "yield*" if step.is_each else "yield"
+            return (
+                '<div class="ns-node ns-action ns-yield">'
+                f'<div class="ns-label" aria-label="Yield {escape(step.expression)}">'
+                f'<span class="step-tag">{tag}</span>'
+                f'<code class="action-text">{escape(step.expression)}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, RethrowFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-rethrow">'
+                '<div class="ns-label" aria-label="Rethrow">'
+                '<span class="step-tag">rethrow</span>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, AssertFlowStep):
+            detail = f": {step.message}" if step.message else ""
+            label = f"{escape(step.condition)}{escape(detail)}"
+            return (
+                '<div class="ns-node ns-action ns-assert">'
+                f'<div class="ns-label" aria-label="Assert {escape(step.condition)}">'
+                '<span class="step-tag">assert</span>'
+                f'<code class="action-text">{label}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, BreakFlowStep):
+            label = f" {step.label}" if step.label else ""
+            return (
+                '<div class="ns-node ns-action ns-break">'
+                f'<div class="ns-label" aria-label="Break{escape(label)}">'
+                '<span class="step-tag">break</span>'
+                f'<code class="action-text">{escape(step.label or "")}</code>'
+                "</div>"
+                "</div>"
+            )
+        if isinstance(step, ContinueFlowStep):
+            label = f" {step.label}" if step.label else ""
+            return (
+                '<div class="ns-node ns-action ns-continue">'
+                f'<div class="ns-label" aria-label="Continue{escape(label)}">'
+                '<span class="step-tag">continue</span>'
+                f'<code class="action-text">{escape(step.label or "")}</code>'
                 "</div>"
                 "</div>"
             )
