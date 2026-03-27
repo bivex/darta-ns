@@ -40,3 +40,6 @@ class SourceAccessError(DartaError):
 class GeneratedParserNotAvailableError(DartaError):
     """Raised when generated ANTLR artifacts are missing."""
 
+
+class ControlFlowExtractionError(DartaError):
+    """Raised when control-flow extraction fails and no diagram can be produced."""

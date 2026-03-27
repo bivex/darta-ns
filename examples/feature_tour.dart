@@ -151,22 +151,30 @@ Future<List<int>> loadAndFilter(Future<List<int>> source) async {
   return result;
 }
 
-// ── 10. Class: constructor, named constructor, getter, setter, operator ───────
+// ── 10. Class: block-body constructors, getter, setter, operator ─────────────
 
 class Vector2 {
   final double x;
   final double y;
 
-  // Default constructor
-  Vector2(this.x, this.y);
+  // Default constructor with a block body so it appears in structural reports.
+  Vector2(this.x, this.y) {
+    if (!x.isFinite || !y.isFinite) {
+      throw ArgumentError('coordinates must be finite');
+    }
+  }
 
   // Named constructor
   Vector2.zero() : x = 0, y = 0;
 
-  // Named constructor with logic
+  // Named constructor with logic in both the initializer list and the body.
   Vector2.fromAngle(double radians, double length)
       : x = length * _cos(radians),
-        y = length * _sin(radians);
+        y = length * _sin(radians) {
+    if (length < 0) {
+      throw ArgumentError('length must be non-negative');
+    }
+  }
 
   // Factory constructor
   factory Vector2.parse(String s) {

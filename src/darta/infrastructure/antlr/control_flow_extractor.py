@@ -29,6 +29,7 @@ from darta.domain.control_flow import (
     WhileFlowStep,
     YieldFlowStep,
 )
+from darta.domain.errors import ControlFlowExtractionError, DartaError
 from darta.domain.model import SourceUnit
 from darta.domain.ports import DartControlFlowExtractor
 from darta.infrastructure.antlr.runtime import (
@@ -68,8 +69,12 @@ class AntlrDartControlFlowExtractor(DartControlFlowExtractor):
                 source_location=source_unit.location,
                 functions=tuple(visitor.functions),
             )
-        except Exception:
-            return ControlFlowDiagram(source_location=source_unit.location, functions=())
+        except DartaError:
+            raise
+        except Exception as error:
+            raise ControlFlowExtractionError(
+                f"unable to extract control flow from {source_unit.location}: {error}"
+            ) from error
 
 
 def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) -> type:

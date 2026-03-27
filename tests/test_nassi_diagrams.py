@@ -5,6 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+import darta.infrastructure.antlr.control_flow_extractor as control_flow_module
+import darta.presentation.cli.main as cli_main_module
 from darta.application.control_flow import (
     BuildNassiDiagramCommand,
     BuildNassiDirectoryCommand,
@@ -17,6 +21,7 @@ from darta.domain.control_flow import (
     FunctionControlFlow,
     IfFlowStep,
 )
+from darta.domain.errors import ControlFlowExtractionError
 from darta.domain.model import SourceUnit, SourceUnitId
 from darta.infrastructure.antlr.control_flow_extractor import AntlrDartControlFlowExtractor
 from darta.infrastructure.filesystem.source_repository import FileSystemSourceRepository
@@ -155,6 +160,55 @@ def test_nassi_dir_cli_writes_html_bundle(tmp_path: Path) -> None:
     assert (output_dir / "control_flow.nassi.html").exists()
     assert (output_dir / "invalid.nassi.html").exists()
     assert "Darta NSD Index" in (output_dir / "index.html").read_text(encoding="utf-8")
+
+
+def test_control_flow_extractor_raises_explicit_error_on_runtime_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ensure_generated_parser()
+    extractor = AntlrDartControlFlowExtractor()
+    source_unit = SourceUnit(
+        identifier=SourceUnitId("/tmp/failure.dart"),
+        location="/tmp/failure.dart",
+        content="void main() {}",
+    )
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("visitor exploded")
+
+    monkeypatch.setattr(control_flow_module, "parse_source_text", boom)
+
+    with pytest.raises(ControlFlowExtractionError, match="unable to extract control flow"):
+        extractor.extract(source_unit)
+
+
+def test_nassi_cli_returns_json_error_for_control_flow_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source_path = tmp_path / "broken.dart"
+    source_path.write_text("void main() {}", encoding="utf-8")
+
+    class FailingNassiService:
+        def build_file_diagram(self, _command):
+            raise ControlFlowExtractionError("unable to extract control flow from broken.dart: boom")
+
+    monkeypatch.setattr(cli_main_module, "_build_nassi_service", lambda: FailingNassiService())
+
+    exit_code = cli_main_module.main(
+        [
+            "nassi-file",
+            str(source_path),
+            "--out",
+            str(tmp_path / "broken.nassi.html"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    payload = json.loads(captured.err)
+    assert "unable to extract control flow" in payload["error"]
 
 
 # ---------------------------------------------------------------------------

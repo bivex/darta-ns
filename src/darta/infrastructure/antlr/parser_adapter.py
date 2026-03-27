@@ -241,6 +241,39 @@ def _build_structure_visitor(visitor_base: type) -> type:
                 )
                 return None
 
+            # constructorSignature (regular and named constructors)
+            ctor_sig = method_sig.constructorSignature() if hasattr(method_sig, "constructorSignature") else None
+            if ctor_sig is not None:
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_constructor_signature(ctor_sig),
+                    ctx,
+                    signature=ctor_sig.getText(),
+                )
+                return None
+
+            # factoryConstructorSignature
+            factory_sig = method_sig.factoryConstructorSignature() if hasattr(method_sig, "factoryConstructorSignature") else None
+            if factory_sig is not None:
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_factory_constructor_signature(factory_sig),
+                    ctx,
+                    signature=factory_sig.getText(),
+                )
+                return None
+
+            # operatorSignature
+            op_sig = method_sig.operatorSignature() if hasattr(method_sig, "operatorSignature") else None
+            if op_sig is not None:
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_operator_signature(op_sig),
+                    ctx,
+                    signature=op_sig.getText(),
+                )
+                return None
+
             return self.visitChildren(ctx)
 
         # ── Helpers ─────────────────────────────────────────────────────────
@@ -280,3 +313,38 @@ def _name_from_class_name_maybe_primary(cnmp) -> str:
     if pc is not None:
         return pc.typeWithParameters().typeIdentifier().getText()
     return "class"
+
+
+def _name_from_constructor_signature(ctor_sig) -> str:
+    cn = ctor_sig.constructorName() if hasattr(ctor_sig, "constructorName") else None
+    if cn is not None and cn.typeIdentifier() is not None:
+        identifier_or_new = cn.identifierOrNew()
+        base = cn.typeIdentifier().getText()
+        return f"{base}.{identifier_or_new.getText()}" if identifier_or_new else base
+
+    ch = ctor_sig.constructorHead() if hasattr(ctor_sig, "constructorHead") else None
+    ident = ch.identifier() if ch and hasattr(ch, "identifier") else None
+    return ident.getText() if ident else "<constructor>"
+
+
+def _name_from_factory_constructor_signature(factory_sig) -> str:
+    two_part_name = (
+        factory_sig.constructorTwoPartName()
+        if hasattr(factory_sig, "constructorTwoPartName")
+        else None
+    )
+    if two_part_name is not None and two_part_name.identifierOrNew() is not None:
+        return f"factory {two_part_name.identifierOrNew().getText()}"
+
+    head = (
+        factory_sig.factoryConstructorHead()
+        if hasattr(factory_sig, "factoryConstructorHead")
+        else None
+    )
+    ident = head.identifier() if head and hasattr(head, "identifier") else None
+    return f"factory {ident.getText()}" if ident else "factory"
+
+
+def _name_from_operator_signature(op_sig) -> str:
+    operator = op_sig.operator() if hasattr(op_sig, "operator") else None
+    return f"operator {operator.getText()}" if operator is not None else "operator ?"

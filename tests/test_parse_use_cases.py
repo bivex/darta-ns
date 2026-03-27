@@ -86,6 +86,46 @@ enum Mode {
     assert {element.kind for element in report.sources[0].structural_elements} >= {"enum"}
 
 
+def test_parse_file_extracts_member_constructors_and_operator_overloads(tmp_path: Path) -> None:
+    service = _build_service()
+    source_path = tmp_path / "member_signatures.dart"
+    source_path.write_text(
+        """
+class Box {
+  final int value;
+
+  Box.named(this.value) {
+    assert(value >= 0);
+  }
+
+  factory Box.parse(String raw) {
+    return Box.named(int.parse(raw));
+  }
+
+  Box operator +(Box other) {
+    return Box.named(value + other.value);
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = service.parse_file(ParseFileCommand(path=str(source_path)))
+
+    assert report.summary.source_count == 1
+    assert report.summary.technical_failure_count == 0
+    functions = {
+        (element.container, element.name)
+        for element in report.sources[0].structural_elements
+        if element.kind == "function"
+    }
+    assert {
+        ("Box", "Box.named"),
+        ("Box", "factory parse"),
+        ("Box", "operator +"),
+    } <= functions
+
+
 def test_cli_outputs_json() -> None:
     _ensure_generated_parser()
     result = subprocess.run(

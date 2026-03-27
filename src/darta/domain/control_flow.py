@@ -132,6 +132,8 @@ class FunctionControlFlow:
     @property
     def qualified_name(self) -> str:
         if self.container:
+            if self.name == self.container or self.name.startswith(f"{self.container}."):
+                return self.name
             return f"{self.container}.{self.name}"
         return self.name
 
@@ -140,4 +142,3 @@ class FunctionControlFlow:
 class ControlFlowDiagram:
     source_location: str
     functions: tuple[FunctionControlFlow, ...]
-

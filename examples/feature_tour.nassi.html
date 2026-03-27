@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nassi-Shneiderman Control Flow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        /* Palette — editor-first dark */
+        --bg:          #0a0f18;
+        --bg-accent:   #10182a;
+        --surface:     #111827;
+        --surface-2:   #172131;
+        --surface-3:   #1c2940;
+        --surface-4:   #233452;
+        --border:      #2b3b59;
+        --border-strong: #3f5378;
+        --border-soft: #182338;
+        --text:        #cfd8f6;
+        --text-bright: #f4f7ff;
+        --muted:       #8e9bbb;
+        --shadow:      0 24px 72px rgba(3, 8, 18, 0.56);
+
+        /* Accent colours */
+        --blue:        #82aaff;
+        --blue-dim:    #243b69;
+        --green:       #a6da95;
+        --green-dim:   #163628;
+        --red:         #ff93a9;
+        --red-dim:     #371925;
+        --orange:      #ffb86b;
+        --orange-dim:  #37230f;
+        --teal:        #56d4dd;
+        --teal-dim:    #11343b;
+        --purple:      #c4a7ff;
+        --purple-dim:  #2a1d41;
+        --amber:       #f1ca7a;
+        --amber-dim:   #39290f;
+
+        /* Block fills */
+        --loop-fill:   #132033;
+        --switch-fill: #102529;
+        --do-fill:     #1a1624;
+        --try-fill:    #241d0d;
+        --await-fill:  #1c1433;
+        --yield-fill:  #0f2820;
+        --assert-fill: #251f0a;
+        --jump-fill:   #1a1014;
+        --throw-fill:  #24100f;
+        --return-fill: #0e2b2e;
+        --yes-fill:    #102217;
+        --no-fill:     #251019;
+        --action-fill: var(--surface-2);
+        --note-fill:   #101720;
+
+        /* Code font */
+        --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", "Menlo", monospace;
+        --ui:   "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: var(--ui);
+        font-size: 14px;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(130, 170, 255, 0.12), transparent 28%),
+          linear-gradient(180deg, var(--bg) 0%, #0c121d 100%);
+        padding: 24px;
+        min-height: 100vh;
+        overflow-x: auto;
+        color-scheme: dark;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      /* ── Viewer shell ── */
+      .viewer {
+        width: max-content;
+        min-width: min(1200px, calc(100vw - 48px));
+        margin: 0 auto;
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+          var(--surface);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .titlebar {
+        padding: 10px 16px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0)),
+          var(--surface-3);
+        border-bottom: 1px solid var(--border-strong);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .titlebar-icon {
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: var(--blue-dim);
+        border: 1px solid var(--blue);
+        flex-shrink: 0;
+      }
+      .titlebar-text {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--text-bright);
+        letter-spacing: 0.01em;
+      }
+      .toolbar {
+        padding: 9px 16px;
+        border-bottom: 1px solid var(--border-soft);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+          var(--surface);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: baseline;
+      }
+      .toolbar-label {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--blue);
+        background: rgba(130, 170, 255, 0.14);
+        border: 1px solid rgba(130, 170, 255, 0.3);
+        border-radius: 999px;
+        padding: 3px 8px;
+        white-space: nowrap;
+      }
+      .toolbar-path {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      /* ── Viewer body ── */
+      .viewer-body {
+        padding: 16px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0) 180px),
+          var(--bg);
+      }
+      /* ── Function panel ── */
+      .function-panel {
+        margin-bottom: 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: rgba(10, 15, 24, 0.72);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+        overflow: hidden;
+      }
+      .function-panel:last-child { margin-bottom: 0; }
+      .function-head {
+        padding: 12px 16px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+          var(--surface-3);
+        border-bottom: 1px solid var(--border-strong);
+      }
+      .function-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-bright);
+        line-height: 1.3;
+      }
+      .function-signature {
+        margin-top: 5px;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .function-body {
+        padding: 12px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0)),
+          rgba(7, 11, 18, 0.84);
+      }
+      .function-body > .ns-sequence {
+        width: max-content;
+        min-width: 100%;
+      }
+      /* ── Node sequence ── */
+      .ns-sequence {
+        display: flex;
+        flex-direction: column;
+        width: max-content;
+        min-width: 100%;
+      }
+      .ns-sequence > .ns-node + .ns-node,
+      .ns-cases > .case + .case,
+      .ns-catches > .ns-node + .ns-node {
+        margin-top: -1px;
+      }
+      .ns-node {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--action-fill);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+      }
+      /* ── Block headers/footers ── */
+      .ns-header,
+      .ns-footer,
+      .case-title {
+        padding: 7px 12px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)),
+          var(--blue-dim);
+        color: var(--text-bright);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.4;
+        border-bottom: 1px solid var(--border-strong);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .ns-footer {
+        border-top: 1px solid var(--border);
+        border-bottom: 0;
+      }
+      /* ── Action label ── */
+      .ns-label,
+      .empty,
+      .ns-note {
+        padding: 8px 12px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0)),
+          var(--action-fill);
+      }
+      .action-text {
+        display: block;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.72;
+        color: var(--text-bright);
+        letter-spacing: -0.01em;
+        font-variant-ligatures: none;
+        tab-size: 2;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      /* ── Block type colours ── */
+      .ns-loop,
+      .ns-do-while { background: var(--loop-fill); }
+      .ns-switch   { background: var(--switch-fill); }
+      .ns-try-catch { background: var(--try-fill); }
+
+      .ns-switch   > .ns-header,
+      .case-title              { background: var(--teal-dim);   color: var(--teal);   }
+      .ns-try-catch > .ns-header { background: var(--purple-dim); color: var(--purple); }
+
+      /* Left accent stripes */
+      .ns-node.ns-loop,
+      .ns-node.ns-do-while { border-left: 3px solid var(--blue); }
+      .ns-node.ns-switch   { border-left: 3px solid var(--teal); }
+      .ns-node.ns-try-catch { border-left: 3px solid var(--purple); }
+      .ns-await { background: var(--await-fill); border-left: 3px solid var(--purple); }
+      .ns-await .ns-label { color: var(--purple); }
+      .ns-yield { background: var(--yield-fill); border-left: 3px solid var(--green); }
+      .ns-yield .ns-label { color: var(--green); }
+      .ns-assert { background: var(--assert-fill); border-left: 3px solid var(--amber); }
+      .ns-assert .ns-label { color: var(--amber); }
+      .ns-rethrow { background: var(--jump-fill); border-left: 3px solid var(--red); }
+      .ns-rethrow .ns-label { color: var(--red); }
+      .ns-break { background: var(--jump-fill); border-left: 3px solid var(--orange); }
+      .ns-break .ns-label { color: var(--orange); }
+      .ns-continue { background: var(--jump-fill); border-left: 3px solid var(--orange); }
+      .ns-continue .ns-label { color: var(--orange); }
+      .ns-throw { background: var(--throw-fill); border-left: 3px solid var(--red); }
+      .ns-throw .ns-label { color: var(--red); }
+      .ns-return { background: var(--return-fill); border-left: 3px solid var(--teal); }
+      .ns-return .ns-label { color: var(--teal); }
+      .ns-pattern-decl { background: #0e1f2e; border-left: 3px solid var(--blue); }
+      .ns-pattern-decl .ns-label { color: var(--blue); }
+      .ns-switch-expr { background: #0f2030; border-left: 3px solid var(--teal); }
+      .ns-switch-expr .ns-label { color: var(--teal); }
+      .step-tag { font-size: 10px; font-weight: 700; letter-spacing: .05em;
+        text-transform: uppercase; opacity: .7; margin-right: 6px; vertical-align: middle; }
+      .ns-await .step-tag { color: var(--purple); }
+      .ns-yield .step-tag { color: var(--green); }
+      .ns-assert .step-tag { color: var(--amber); }
+      .ns-rethrow .step-tag { color: var(--red); }
+      .ns-break .step-tag, .ns-continue .step-tag { color: var(--orange); }
+      .ns-throw .step-tag { color: var(--red); }
+      .ns-return .step-tag { color: var(--teal); }
+      .ns-pattern-decl .step-tag { color: var(--blue); }
+      .ns-switch-expr .step-tag { color: var(--teal); }
+
+      /* Depth tinting */
+      .ns-depth-1 > .ns-node { background-color: rgba(255,255,255,0.012); }
+      .ns-depth-2 > .ns-node { background-color: rgba(255,255,255,0.020); }
+      .ns-depth-3 > .ns-node { background-color: rgba(255,255,255,0.028); }
+
+      /* ── If/else branches (classic NS diagram with SVG) ── */
+      .ns-if-cap {
+        border-bottom: 1px solid var(--border);
+        line-height: 0;
+      }
+      .ns-if-svg {
+        display: block;
+        height: auto;
+      }
+      .ns-if-triangle {
+        fill: var(--blue-dim);
+        stroke: var(--border);
+        stroke-width: 1;
+      }
+      .ns-if-diagonal {
+        stroke: var(--border);
+        stroke-width: 1;
+      }
+      .ns-if-condition-fo {
+        overflow: hidden;
+      }
+      .ns-if-condition-text {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-bright);
+        text-align: center;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        line-height: 1.3;
+        padding: 4px 8px;
+      }
+      .ns-if-label-yes {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        fill: var(--green);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .ns-if-label-no {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        fill: var(--red);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Switch/case (classic NS diagram) ── */
+      .ns-switch-header {
+        padding: 9px 12px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0)),
+          var(--teal-dim);
+        color: var(--text-bright);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 500;
+        border-bottom: 1px solid var(--border-strong);
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .ns-switch-cases {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(140px, max-content);
+        background: var(--bg);
+        width: max-content;
+        min-width: 100%;
+      }
+      .ns-switch-case-col {
+        border-right: 1px solid var(--border);
+        min-width: 140px;
+        display: flex;
+        flex-direction: column;
+      }
+      .ns-switch-case-col:last-child {
+        border-right: none;
+      }
+      .ns-switch-case-value {
+        padding: 9px 12px;
+        background: rgba(16, 24, 39, 0.86);
+        color: var(--teal);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--border-strong);
+        text-align: center;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .ns-switch-case-body {
+        padding: 0;
+        background: var(--bg);
+        min-height: 40px;
+      }
+      .ns-switch-case-body .ns-sequence {
+        padding: 8px;
+      }
+
+      /* Depth-coded if-cap triangles and diagonals (0-50, cycling blue→green→purple→teal→amber) */
+      .ns-if-depth-0-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-0-diagonal { stroke: var(--blue); }
+      .ns-if-depth-1-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-1-diagonal { stroke: var(--green); }
+      .ns-if-depth-2-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-2-diagonal { stroke: var(--purple); }
+      .ns-if-depth-3-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-3-diagonal { stroke: var(--teal); }
+      .ns-if-depth-4-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-4-diagonal { stroke: var(--amber); }
+      .ns-if-depth-5-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-5-diagonal { stroke: var(--blue); }
+      .ns-if-depth-6-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-6-diagonal { stroke: var(--green); }
+      .ns-if-depth-7-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-7-diagonal { stroke: var(--purple); }
+      .ns-if-depth-8-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-8-diagonal { stroke: var(--teal); }
+      .ns-if-depth-9-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-9-diagonal { stroke: var(--amber); }
+      .ns-if-depth-10-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-10-diagonal { stroke: var(--blue); }
+      .ns-if-depth-11-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-11-diagonal { stroke: var(--green); }
+      .ns-if-depth-12-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-12-diagonal { stroke: var(--purple); }
+      .ns-if-depth-13-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-13-diagonal { stroke: var(--teal); }
+      .ns-if-depth-14-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-14-diagonal { stroke: var(--amber); }
+      .ns-if-depth-15-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-15-diagonal { stroke: var(--blue); }
+      .ns-if-depth-16-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-16-diagonal { stroke: var(--green); }
+      .ns-if-depth-17-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-17-diagonal { stroke: var(--purple); }
+      .ns-if-depth-18-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-18-diagonal { stroke: var(--teal); }
+      .ns-if-depth-19-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-19-diagonal { stroke: var(--amber); }
+      .ns-if-depth-20-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-20-diagonal { stroke: var(--blue); }
+      .ns-if-depth-21-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-21-diagonal { stroke: var(--green); }
+      .ns-if-depth-22-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-22-diagonal { stroke: var(--purple); }
+      .ns-if-depth-23-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-23-diagonal { stroke: var(--teal); }
+      .ns-if-depth-24-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-24-diagonal { stroke: var(--amber); }
+      .ns-if-depth-25-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-25-diagonal { stroke: var(--blue); }
+      .ns-if-depth-26-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-26-diagonal { stroke: var(--green); }
+      .ns-if-depth-27-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-27-diagonal { stroke: var(--purple); }
+      .ns-if-depth-28-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-28-diagonal { stroke: var(--teal); }
+      .ns-if-depth-29-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-29-diagonal { stroke: var(--amber); }
+      .ns-if-depth-30-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-30-diagonal { stroke: var(--blue); }
+      .ns-if-depth-31-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-31-diagonal { stroke: var(--green); }
+      .ns-if-depth-32-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-32-diagonal { stroke: var(--purple); }
+      .ns-if-depth-33-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-33-diagonal { stroke: var(--teal); }
+      .ns-if-depth-34-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-34-diagonal { stroke: var(--amber); }
+      .ns-if-depth-35-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-35-diagonal { stroke: var(--blue); }
+      .ns-if-depth-36-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-36-diagonal { stroke: var(--green); }
+      .ns-if-depth-37-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-37-diagonal { stroke: var(--purple); }
+      .ns-if-depth-38-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-38-diagonal { stroke: var(--teal); }
+      .ns-if-depth-39-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-39-diagonal { stroke: var(--amber); }
+      .ns-if-depth-40-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-40-diagonal { stroke: var(--blue); }
+      .ns-if-depth-41-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-41-diagonal { stroke: var(--green); }
+      .ns-if-depth-42-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-42-diagonal { stroke: var(--purple); }
+      .ns-if-depth-43-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-43-diagonal { stroke: var(--teal); }
+      .ns-if-depth-44-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-44-diagonal { stroke: var(--amber); }
+      .ns-if-depth-45-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-45-diagonal { stroke: var(--blue); }
+      .ns-if-depth-46-triangle { fill: var(--green-dim); stroke: var(--green); }
+      .ns-if-depth-46-diagonal { stroke: var(--green); }
+      .ns-if-depth-47-triangle { fill: var(--purple-dim); stroke: var(--purple); }
+      .ns-if-depth-47-diagonal { stroke: var(--purple); }
+      .ns-if-depth-48-triangle { fill: var(--teal-dim); stroke: var(--teal); }
+      .ns-if-depth-48-diagonal { stroke: var(--teal); }
+      .ns-if-depth-49-triangle { fill: var(--amber-dim); stroke: var(--amber); }
+      .ns-if-depth-49-diagonal { stroke: var(--amber); }
+      .ns-if-depth-50-triangle { fill: var(--blue-dim); stroke: var(--blue); }
+      .ns-if-depth-50-diagonal { stroke: var(--blue); }
+
+      .ns-branches {
+        display: grid;
+        grid-template-columns: repeat(2, max-content);
+        background: var(--surface-2);
+        width: max-content;
+        min-width: 100%;
+      }
+      .ns-branches-single { grid-template-columns: max-content; }
+      .ns-branch {
+        border-left: 2px solid var(--border);
+        background: var(--surface-2);
+      }
+      .ns-branch-yes {
+        background: rgba(158, 206, 106, 0.08);
+      }
+      .ns-branch-no {
+        background: rgba(247, 118, 142, 0.08);
+      }
+      .ns-branch-yes > .ns-sequence > .ns-node {
+        background: rgba(158, 206, 106, 0.12);
+      }
+      .ns-branch-no > .ns-sequence > .ns-node {
+        background: rgba(247, 118, 142, 0.12);
+      }
+      .ns-branch-yes .ns-label,
+      .ns-branch-yes .empty,
+      .ns-branch-yes .ns-note {
+        background: rgba(158, 206, 106, 0.14);
+      }
+      .ns-branch-no .ns-label,
+      .ns-branch-no .empty,
+      .ns-branch-no .ns-note {
+        background: rgba(247, 118, 142, 0.14);
+      }
+      .ns-branch-yes > .ns-branch-title {
+        background: rgba(158, 206, 106, 0.2);
+        color: var(--green);
+      }
+      .ns-branch-no > .ns-branch-title {
+        background: rgba(247, 118, 142, 0.18);
+        color: var(--red);
+      }
+      .ns-branch:first-child { border-left: 0; }
+      .ns-branch-title {
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(18, 26, 41, 0.92);
+        color: var(--muted);
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .ns-cases { background: var(--surface-2); }
+      .case { border-top: 1px solid var(--border); }
+      .case:first-child { border-top: 0; }
+      .ns-catches { border-top: 1px solid var(--border); }
+
+      .empty {
+        color: var(--muted);
+        font-style: italic;
+        font-size: 12px;
+        background: rgba(20, 28, 41, 0.92);
+      }
+      .ns-note {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-style: italic;
+        background: var(--note-fill);
+        border-top: 1px solid var(--border);
+        padding: 8px 12px;
+      }
+      .empty-file {
+        padding: 24px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 800px) {
+        body { padding: 12px; }
+        .viewer {
+          width: auto;
+          min-width: 0;
+        }
+        .viewer-body { padding: 8px; }
+        .function-body {
+          padding: 6px;
+          overflow-x: auto;
+        }
+        .function-body > .ns-sequence,
+        .ns-sequence {
+          width: 100%;
+          min-width: 0;
+        }
+        .ns-branches {
+          width: 100%;
+          min-width: 0;
+          grid-template-columns: 1fr;
+        }
+        .ns-branches-single { grid-template-columns: 1fr; }
+        .ns-branch {
+          border-left: 0;
+          border-top: 1px solid var(--border);
+        }
+        .ns-branch:first-child { border-top: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="viewer">
+      <div class="titlebar">
+        <div class="titlebar-icon"></div>
+        <span class="titlebar-text">Darta · NSD Viewer</span>
+      </div>
+      <div class="toolbar">
+        <span class="toolbar-label">Nassi-Shneiderman</span>
+        <code class="toolbar-path">/Volumes/External/Code/darta-ns/examples/feature_tour.dart</code>
+      </div>
+      <main class="viewer-body"><section class="function-panel"><div class="function-head"><h2 class="function-title">clamp</h2><div class="function-signature">int clamp(int value, int lo, int hi)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If value &lt; lo"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> value &lt; lo</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return lo"><span class="step-tag">return</span><code class="action-text">lo</code></div></div></div></div><div class="ns-branch ns-branch-no" aria-label="Else branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If value &gt; hi"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① value &gt; hi</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return hi"><span class="step-tag">return</span><code class="action-text">hi</code></div></div></div></div><div class="ns-branch ns-branch-no" aria-label="Else branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return value"><span class="step-tag">return</span><code class="action-text">value</code></div></div></div></div></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">get globalCounter</h2><div class="function-signature">int get globalCounter</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; _globalCounter"><code class="action-text">=&gt; _globalCounter</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">set globalCounter</h2><div class="function-signature">set globalCounter(int v)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If v &lt; 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> v &lt; 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action _globalCounter = 0;"><code class="action-text">_globalCounter = 0;</code></div></div></div></div><div class="ns-branch ns-branch-no" aria-label="Else branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action _globalCounter = v;"><code class="action-text">_globalCounter = v;</code></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">collatz</h2><div class="function-signature">int collatz(int n)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action var steps = 0;"><code class="action-text">var steps = 0;</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="While n != 1">While n != 1</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If n % 2 == 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① n % 2 == 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action n = n ~/ 2;"><code class="action-text">n = n ~/ 2;</code></div></div></div></div><div class="ns-branch ns-branch-no" aria-label="Else branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action n = 3 * n + 1;"><code class="action-text">n = 3 * n + 1;</code></div></div></div></div></div></div><div class="ns-node ns-action"><div class="ns-label" aria-label="Action steps++;"><code class="action-text">steps++;</code></div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return steps"><span class="step-tag">return</span><code class="action-text">steps</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">nextPowerOfTwo</h2><div class="function-signature">int nextPowerOfTwo(int n)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action var p = 1;"><code class="action-text">var p = 1;</code></div></div><div class="ns-node ns-do-while"><div class="ns-header" aria-label="Do">Do</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action p *= 2;"><code class="action-text">p *= 2;</code></div></div></div><div class="ns-footer" aria-label="While p &lt; n">While p &lt; n</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return p"><span class="step-tag">return</span><code class="action-text">p</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">sumList</h2><div class="function-signature">int sumList(List&lt;int&gt; values)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action var total = 0;"><code class="action-text">var total = 0;</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var i = 0; i &lt; values.length; i++">For var i = 0; i &lt; values.length; i++</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action total += values[i];"><code class="action-text">total += values[i];</code></div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return total"><span class="step-tag">return</span><code class="action-text">total</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">joinWords</h2><div class="function-signature">String joinWords(List&lt;String&gt; words)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action var result = &#x27;&#x27;;"><code class="action-text">var result = &#x27;&#x27;;</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="For final w in words">For final w in words</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If result.isNotEmpty"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① result.isNotEmpty</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action result += &#x27; &#x27;;"><code class="action-text">result += &#x27; &#x27;;</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action"><div class="ns-label" aria-label="Action result += w;"><code class="action-text">result += w;</code></div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return result"><span class="step-tag">return</span><code class="action-text">result</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">dayName</h2><div class="function-signature">String dayName(int day)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-switch ns-if-depth-0"><div class="ns-switch-header"> switch day</div><div class="ns-switch-cases"><div class="ns-switch-case-col" aria-label="case 1"><div class="ns-switch-case-value">case 1</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Monday&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Monday&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case 2"><div class="ns-switch-case-value">case 2</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Tuesday&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Tuesday&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case 3"><div class="ns-switch-case-value">case 3</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Wednesday&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Wednesday&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case 4"><div class="ns-switch-case-value">case 4</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Thursday&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Thursday&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case 5"><div class="ns-switch-case-value">case 5</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Friday&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Friday&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="default"><div class="ns-switch-case-value">default</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Weekend&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Weekend&#x27;</code></div></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">classify</h2><div class="function-signature">String classify(Object value)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-switch ns-if-depth-0"><div class="ns-switch-header"> switch value</div><div class="ns-switch-cases"><div class="ns-switch-case-col" aria-label="case int n when n &lt; 0"><div class="ns-switch-case-value">case int n when n &lt; 0</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;negative int&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;negative int&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case int n when n == 0"><div class="ns-switch-case-value">case int n when n == 0</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;zero&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;zero&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case int _"><div class="ns-switch-case-value">case int _</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;positive int&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;positive int&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case String s when s.isEmpty"><div class="ns-switch-case-value">case String s when s.isEmpty</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;empty string&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;empty string&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="case String _"><div class="ns-switch-case-value">case String _</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;non-empty string&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;non-empty string&#x27;</code></div></div></div></div></div><div class="ns-switch-case-col" aria-label="default"><div class="ns-switch-case-value">default</div><div class="ns-switch-case-body"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;other&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;other&#x27;</code></div></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">safeDivide</h2><div class="function-signature">String safeDivide(int a, int b)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Try">Try</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If b == 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① b == 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw ArgumentError(&#x27;division by zero&#x27;)"><span class="step-tag">throw</span><code class="action-text">ArgumentError(&#x27;division by zero&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;${a ~/ b}&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;${a ~/ b}&#x27;</code></div></div></div><div class="ns-catches"><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Catch on ArgumentError catch (e)">Catch on ArgumentError catch (e)</div><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;argument error: ${e.message}&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;argument error: ${e.message}&#x27;</code></div></div></div></div><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Catch catch (e)">Catch catch (e)</div><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;unexpected error: $e&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;unexpected error: $e&#x27;</code></div></div></div></div><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Finally">Finally</div><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action _globalCounter++;"><code class="action-text">_globalCounter++;</code></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">fetchGreeting</h2><div class="function-signature">Future&lt;String&gt; fetchGreeting(String name)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-await"><div class="ns-label" aria-label="Await Future.delayed(Duration.zero)"><span class="step-tag">await</span><code class="action-text">Future.delayed(Duration.zero)</code></div></div><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final upper = name.toUpperCase();"><code class="action-text">final upper = name.toUpperCase();</code></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Hello, $upper!&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Hello, $upper!&#x27;</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">loadAndFilter</h2><div class="function-signature">Future&lt;List&lt;int&gt;&gt; loadAndFilter(Future&lt;List&lt;int&gt;&gt; source)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final raw = await source;"><code class="action-text">final raw = await source;</code></div></div><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final result = &lt;int&gt;[];"><code class="action-text">final result = &lt;int&gt;[];</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="For final v in raw">For final v in raw</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If v &gt; 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① v &gt; 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action result.add(v);"><code class="action-text">result.add(v);</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return result"><span class="step-tag">return</span><code class="action-text">result</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2</h2><div class="function-signature">Vector2(this.x, this.y)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If !x.isFinite || !y.isFinite"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> !x.isFinite || !y.isFinite</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw ArgumentError(&#x27;coordinates must be finite&#x27;)"><span class="step-tag">throw</span><code class="action-text">ArgumentError(&#x27;coordinates must be finite&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.fromAngle</h2><div class="function-signature">Vector2.fromAngle(double radians, double length)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If length &lt; 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> length &lt; 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw ArgumentError(&#x27;length must be non-negative&#x27;)"><span class="step-tag">throw</span><code class="action-text">ArgumentError(&#x27;length must be non-negative&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.factory parse</h2><div class="function-signature">factory Vector2.parse(String s)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final parts = s.split(&#x27;,&#x27;);"><code class="action-text">final parts = s.split(&#x27;,&#x27;);</code></div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If parts.length != 2"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> parts.length != 2</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw FormatException(&#x27;expected &quot;x,y&quot;, got: $s&#x27;)"><span class="step-tag">throw</span><code class="action-text">FormatException(&#x27;expected &quot;x,y&quot;, got: $s&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return Vector2(double.parse(parts[0]), double.parse(parts[1]))"><span class="step-tag">return</span><code class="action-text">Vector2(double.parse(parts[0]), double.parse(parts[1]))</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.get length</h2><div class="function-signature">double get length</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final sq = x * x + y * y;"><code class="action-text">final sq = x * x + y * y;</code></div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If sq == 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> sq == 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return 0"><span class="step-tag">return</span><code class="action-text">0</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return _sqrt(sq)"><span class="step-tag">return</span><code class="action-text">_sqrt(sq)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.set scale</h2><div class="function-signature">set scale(double factor)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If factor &lt;= 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> factor &lt;= 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw ArgumentError(&#x27;scale must be positive&#x27;)"><span class="step-tag">throw</span><code class="action-text">ArgumentError(&#x27;scale must be positive&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.operator +</h2><div class="function-signature">Vector2 operator +(Vector2 other)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return Vector2(x + other.x, y + other.y)"><span class="step-tag">return</span><code class="action-text">Vector2(x + other.x, y + other.y)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.operator *</h2><div class="function-signature">Vector2 operator *(double scalar)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If scalar == 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> scalar == 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return Vector2.zero()"><span class="step-tag">return</span><code class="action-text">Vector2.zero()</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return Vector2(x * scalar, y * scalar)"><span class="step-tag">return</span><code class="action-text">Vector2(x * scalar, y * scalar)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Vector2.describe</h2><div class="function-signature">String describe(bool verbose)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final len = length;"><code class="action-text">final len = length;</code></div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If verbose"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> verbose</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If len == 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① len == 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;zero vector&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;zero vector&#x27;</code></div></div></div></div><div class="ns-branch ns-branch-no" aria-label="Else branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;Vector2(x=$x, y=$y, length=$len)&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;Vector2(x=$x, y=$y, length=$len)&#x27;</code></div></div></div></div></div></div></div></div><div class="ns-branch ns-branch-no" aria-label="Else branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;($x, $y)&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;($x, $y)&#x27;</code></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Circle.get name</h2><div class="function-signature">String get name</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; &#x27;circle&#x27;"><code class="action-text">=&gt; &#x27;circle&#x27;</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Circle.get area</h2><div class="function-signature">double get area</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If radius &lt;= 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> radius &lt;= 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return 0"><span class="step-tag">return</span><code class="action-text">0</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return 3.14159 * radius * radius"><span class="step-tag">return</span><code class="action-text">3.14159 * radius * radius</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Rectangle.get name</h2><div class="function-signature">String get name</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; &#x27;rectangle&#x27;"><code class="action-text">=&gt; &#x27;rectangle&#x27;</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Rectangle.get area</h2><div class="function-signature">double get area</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; width * height"><code class="action-text">=&gt; width * height</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Loggable.log</h2><div class="function-signature">void log(String message)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If message.isEmpty"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> message.isEmpty</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return"><span class="step-tag">return</span><code class="action-text"></code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action"><div class="ns-label" aria-label="Action _log.add(message);"><code class="action-text">_log.add(message);</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">Loggable.get logs</h2><div class="function-signature">List&lt;String&gt; get logs</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; List.unmodifiable(_log)"><code class="action-text">=&gt; List.unmodifiable(_log)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">LoggedVector.addLogged</h2><div class="function-signature">Vector2 addLogged(Vector2 other)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final result = this + other;"><code class="action-text">final result = this + other;</code></div></div><div class="ns-node ns-action"><div class="ns-label" aria-label="Action log(&#x27;added $other → $result&#x27;);"><code class="action-text">log(&#x27;added $other → $result&#x27;);</code></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return result"><span class="step-tag">return</span><code class="action-text">result</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">IntRangeExtension.isBetween</h2><div class="function-signature">bool isBetween(int lo, int hi)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If this &lt; lo"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> this &lt; lo</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return false"><span class="step-tag">return</span><code class="action-text">false</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If this &gt; hi"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> this &gt; hi</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return false"><span class="step-tag">return</span><code class="action-text">false</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return true"><span class="step-tag">return</span><code class="action-text">true</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">IntRangeExtension.to</h2><div class="function-signature">List&lt;int&gt; to(int end)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final result = &lt;int&gt;[];"><code class="action-text">final result = &lt;int&gt;[];</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var i = this; i &lt;= end; i++">For var i = this; i &lt;= end; i++</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action result.add(i);"><code class="action-text">result.add(i);</code></div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return result"><span class="step-tag">return</span><code class="action-text">result</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">range</h2><div class="function-signature">Iterable&lt;int&gt; range(int start, int end)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var i = start; i &lt; end; i++">For var i = start; i &lt; end; i++</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-yield"><div class="ns-label" aria-label="Yield i"><span class="step-tag">yield</span><code class="action-text">i</code></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">concatenate</h2><div class="function-signature">Iterable&lt;int&gt; concatenate(List&lt;Iterable&lt;int&gt;&gt; sources)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-loop"><div class="ns-header" aria-label="For final src in sources">For final src in sources</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-yield"><div class="ns-label" aria-label="Yield src"><span class="step-tag">yield*</span><code class="action-text">src</code></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">ticker</h2><div class="function-signature">Stream&lt;String&gt; ticker(int count)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var i = 0; i &lt; count; i++">For var i = 0; i &lt; count; i++</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-await"><div class="ns-label" aria-label="Await Future.delayed(Duration.zero)"><span class="step-tag">await</span><code class="action-text">Future.delayed(Duration.zero)</code></div></div><div class="ns-node ns-action ns-yield"><div class="ns-label" aria-label="Yield &#x27;tick $i&#x27;"><span class="step-tag">yield</span><code class="action-text">&#x27;tick $i&#x27;</code></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">parsePositive</h2><div class="function-signature">String parsePositive(String s)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Try">Try</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final n = int.parse(s);"><code class="action-text">final n = int.parse(s);</code></div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-1" aria-label="If n &lt;= 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-1-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ① n &lt;= 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-1-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw RangeError(&#x27;must be positive, got $n&#x27;)"><span class="step-tag">throw</span><code class="action-text">RangeError(&#x27;must be positive, got $n&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;$n&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;$n&#x27;</code></div></div></div><div class="ns-catches"><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Catch on FormatException">Catch on FormatException</div><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-rethrow"><div class="ns-label" aria-label="Rethrow"><span class="step-tag">rethrow</span></div></div></div></div><div class="ns-node ns-try-catch"><div class="ns-header" aria-label="Catch catch (e)">Catch catch (e)</div><div class="ns-sequence ns-depth-2"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;error: $e&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;error: $e&#x27;</code></div></div></div></div></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">divide</h2><div class="function-signature">double divide(double a, double b)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-assert"><div class="ns-label" aria-label="Assert b != 0"><span class="step-tag">assert</span><code class="action-text">b != 0: &#x27;divisor must not be zero&#x27;</code></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return a / b"><span class="step-tag">return</span><code class="action-text">a / b</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">takeN</h2><div class="function-signature">List&lt;int&gt; takeN(List&lt;int&gt; list, int n)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-assert"><div class="ns-label" aria-label="Assert n &gt;= 0"><span class="step-tag">assert</span><code class="action-text">n &gt;= 0</code></div></div><div class="ns-node ns-action ns-assert"><div class="ns-label" aria-label="Assert n &lt;= list.length"><span class="step-tag">assert</span><code class="action-text">n &lt;= list.length: &#x27;n=$n exceeds list length ${list.length}&#x27;</code></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return list.sublist(0, n)"><span class="step-tag">return</span><code class="action-text">list.sublist(0, n)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">findPairs</h2><div class="function-signature">List&lt;List&lt;int&gt;&gt; findPairs(List&lt;int&gt; haystack, int target)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action final result = &lt;List&lt;int&gt;&gt;[];"><code class="action-text">final result = &lt;List&lt;int&gt;&gt;[];</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var i = 0; i &lt; haystack.length; i++">For var i = 0; i &lt; haystack.length; i++</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var j = i + 1; j &lt; haystack.length; j++">For var j = i + 1; j &lt; haystack.length; j++</div><div class="ns-sequence ns-depth-2"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-2" aria-label="If haystack[i] + haystack[j] == target"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-2-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ② haystack[i] + haystack[j] == target</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-2-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-2-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-3"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action result.add([haystack[i], haystack[j]]);"><code class="action-text">result.add([haystack[i], haystack[j]]);</code></div></div><div class="ns-node ns-action ns-continue"><div class="ns-label" aria-label="Continue outer"><span class="step-tag">continue</span><code class="action-text">outer</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-2" aria-label="If result.length &gt;= 10"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-2-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> ② result.length &gt;= 10</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-2-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-2-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-3"><div class="ns-node ns-action ns-break"><div class="ns-label" aria-label="Break outer"><span class="step-tag">break</span><code class="action-text">outer</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div></div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return result"><span class="step-tag">return</span><code class="action-text">result</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">validateAge</h2><div class="function-signature">String validateAge(int age)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If age &lt; 0"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> age &lt; 0</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw ArgumentError(&#x27;age cannot be negative: $age&#x27;)"><span class="step-tag">throw</span><code class="action-text">ArgumentError(&#x27;age cannot be negative: $age&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If age &gt; 150"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> age &gt; 150</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-throw"><div class="ns-label" aria-label="Throw ArgumentError(&#x27;age seems unrealistic: $age&#x27;)"><span class="step-tag">throw</span><code class="action-text">ArgumentError(&#x27;age seems unrealistic: $age&#x27;)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;valid&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;valid&#x27;</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">countStreamEvents</h2><div class="function-signature">Future&lt;int&gt; countStreamEvents()</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action var count = 0;"><code class="action-text">var count = 0;</code></div></div><div class="ns-node ns-loop"><div class="ns-header" aria-label="For var i = 0; i &lt; 5; i++">For var i = 0; i &lt; 5; i++</div><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action count++;"><code class="action-text">count++;</code></div></div></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return count"><span class="step-tag">return</span><code class="action-text">count</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">describeJson</h2><div class="function-signature">String describeJson(Object json)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If json case Map&lt;String, Object&gt;() when json.containsKey(&#x27;name&#x27;)"><svg class="ns-if-svg" viewBox="0 0 400 89" width="400" height="89" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,59" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="41" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> json case Map&lt;String, Object&gt;() when json.containsKey(&#x27;name&#x27;)</div></foreignObject><line x1="0" y1="59" x2="200.0" y2="89" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="59" x2="200.0" y2="89" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="81" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="81" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;JSON object with name&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;JSON object with name&#x27;</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If json case List&lt;Object&gt;()"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> json case List&lt;Object&gt;()</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;JSON array&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;JSON array&#x27;</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return &#x27;unknown JSON type&#x27;"><span class="step-tag">return</span><code class="action-text">&#x27;unknown JSON type&#x27;</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">parsePair</h2><div class="function-signature">(String, int) parsePair(Object obj)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-if"><div class="ns-if-cap ns-if-depth-0" aria-label="If obj case (String s, int n)"><svg class="ns-if-svg" viewBox="0 0 400 72" width="400" height="72" preserveAspectRatio="xMidYMid meet"><polygon points="0,0 400,0 200.0,42" class="ns-if-triangle ns-if-depth-0-triangle"/><foreignObject x="20" y="6" width="360" height="24" class="ns-if-condition-fo"><div xmlns="http://www.w3.org/1999/xhtml" class="ns-if-condition-text"> obj case (String s, int n)</div></foreignObject><line x1="0" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><line x1="400" y1="42" x2="200.0" y2="72" class="ns-if-diagonal ns-if-depth-0-diagonal"/><text x="100.0" y="64" text-anchor="middle" class="ns-if-label-yes">Yes</text><text x="300.0" y="64" text-anchor="middle" class="ns-if-label-no">No</text></svg></div><div class="ns-branches ns-branches-single"><div class="ns-branch ns-branch-yes" aria-label="Then branch"><div class="ns-sequence ns-depth-1"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return (s, n)"><span class="step-tag">return</span><code class="action-text">(s, n)</code></div></div></div></div></div><div class="ns-note">No branch continues after the decision.</div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return (&#x27;unknown&#x27;, 0)"><span class="step-tag">return</span><code class="action-text">(&#x27;unknown&#x27;, 0)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">getCoordinates</h2><div class="function-signature">(int x, int y) getCoordinates(Object data)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-pattern-decl"><div class="ns-label" aria-label="var (x, y) = data"><span class="step-tag">var</span><code class="action-text">(x, y) = data</code></div></div><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return (x, y)"><span class="step-tag">return</span><code class="action-text">(x, y)</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">classifyNumber</h2><div class="function-signature">String classifyNumber(int n)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return switch (n) { &lt; 0 =&gt; &#x27;negative&#x27;, 0 =&gt; &#x27;zero&#x27;, &gt; 0 =&gt; &#x27;positive&#x27;, }"><span class="step-tag">return</span><code class="action-text">switch (n) { &lt; 0 =&gt; &#x27;negative&#x27;, 0 =&gt; &#x27;zero&#x27;, &gt; 0 =&gt; &#x27;positive&#x27;, }</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">getStatus</h2><div class="function-signature">String getStatus(int code)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action ns-return"><div class="ns-label" aria-label="Return switch (code) { 200 || 201 =&gt; &#x27;success&#x27;, 300 || 301 =&gt; &#x27;redirect&#x27;, 400 || 404 =&gt; &#x27;client error&#x27;..."><span class="step-tag">return</span><code class="action-text">switch (code) { 200 || 201 =&gt; &#x27;success&#x27;, 300 || 301 =&gt; &#x27;redirect&#x27;, 400 || 404 =&gt; &#x27;client error&#x27;...</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">_cos</h2><div class="function-signature">double _cos(double r)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; r"><code class="action-text">=&gt; r</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">_sin</h2><div class="function-signature">double _sin(double r)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; r"><code class="action-text">=&gt; r</code></div></div></div></div></section><section class="function-panel"><div class="function-head"><h2 class="function-title">_sqrt</h2><div class="function-signature">double _sqrt(double v)</div></div><div class="function-body"><div class="ns-sequence ns-depth-0"><div class="ns-node ns-action"><div class="ns-label" aria-label="Action =&gt; v"><code class="action-text">=&gt; v</code></div></div></div></div></section></main>
+    </div>
+  </body>
+</html>
