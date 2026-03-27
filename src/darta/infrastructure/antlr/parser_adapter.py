@@ -276,6 +276,112 @@ def _build_structure_visitor(visitor_base: type) -> type:
 
             return self.visitChildren(ctx)
 
+        def visitDeclaration(self, ctx):
+            factory_sig = (
+                ctx.factoryConstructorSignature()
+                if hasattr(ctx, "factoryConstructorSignature")
+                else None
+            )
+            if factory_sig is not None:
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_factory_constructor_signature(factory_sig),
+                    ctx,
+                    signature=factory_sig.getText(),
+                )
+                return None
+
+            redirecting_factory_sig = (
+                ctx.redirectingFactoryConstructorSignature()
+                if hasattr(ctx, "redirectingFactoryConstructorSignature")
+                else None
+            )
+            if redirecting_factory_sig is not None:
+                inner_factory_sig = redirecting_factory_sig.factoryConstructorSignature()
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_factory_constructor_signature(inner_factory_sig),
+                    ctx,
+                    signature=redirecting_factory_sig.getText(),
+                )
+                return None
+
+            const_ctor_sig = (
+                ctx.constantConstructorSignature()
+                if hasattr(ctx, "constantConstructorSignature")
+                else None
+            )
+            if const_ctor_sig is not None:
+                ctor_sig = const_ctor_sig.constructorSignature()
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_constructor_signature(ctor_sig),
+                    ctx,
+                    signature=const_ctor_sig.getText(),
+                )
+                return None
+
+            ctor_sig = (
+                ctx.constructorSignature()
+                if hasattr(ctx, "constructorSignature")
+                else None
+            )
+            if ctor_sig is not None:
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_constructor_signature(ctor_sig),
+                    ctx,
+                    signature=ctor_sig.getText(),
+                )
+                return None
+
+            getter_sig = ctx.getterSignature() if hasattr(ctx, "getterSignature") else None
+            if getter_sig is not None:
+                ident = getter_sig.identifier()
+                base_name = ident.getText() if ident else "get"
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    f"get {base_name}",
+                    ctx,
+                    signature=f"get {base_name}",
+                )
+                return None
+
+            setter_sig = ctx.setterSignature() if hasattr(ctx, "setterSignature") else None
+            if setter_sig is not None:
+                ident = setter_sig.identifier()
+                base_name = ident.getText() if ident else "set"
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    f"set {base_name}",
+                    ctx,
+                    signature=f"set {base_name}",
+                )
+                return None
+
+            func_sig = ctx.functionSignature() if hasattr(ctx, "functionSignature") else None
+            if func_sig is not None:
+                name = func_sig.identifier().getText() if func_sig.identifier() else "function"
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    name,
+                    ctx,
+                    signature=func_sig.getText(),
+                )
+                return None
+
+            op_sig = ctx.operatorSignature() if hasattr(ctx, "operatorSignature") else None
+            if op_sig is not None:
+                self._append(
+                    StructuralElementKind.FUNCTION,
+                    _name_from_operator_signature(op_sig),
+                    ctx,
+                    signature=op_sig.getText(),
+                )
+                return None
+
+            return self.visitChildren(ctx)
+
         # ── Helpers ─────────────────────────────────────────────────────────
 
         def _append(self, kind, name: str, ctx, signature: str | None = None) -> None:

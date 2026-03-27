@@ -126,6 +126,64 @@ class Box {
     } <= functions
 
 
+def test_parse_file_extracts_bodyless_and_redirecting_member_signatures(tmp_path: Path) -> None:
+    service = _build_service()
+    source_path = tmp_path / "declaration_members.dart"
+    source_path.write_text(
+        """
+class Circle {
+  final double radius;
+
+  const Circle(this.radius);
+}
+
+class Rectangle {
+  final double width;
+  final double height;
+
+  Rectangle(this.width, this.height);
+  Rectangle.unit() : this(1, 1);
+}
+
+class LoggedVector {
+  final int x;
+  final int y;
+
+  LoggedVector(this.x, this.y);
+}
+
+class Shape {
+  factory Shape.circle(double radius) = CircleShape;
+}
+
+class CircleShape implements Shape {
+  final double radius;
+
+  CircleShape(this.radius);
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = service.parse_file(ParseFileCommand(path=str(source_path)))
+
+    assert report.summary.source_count == 1
+    assert report.summary.technical_failure_count == 0
+    functions = {
+        (element.container, element.name)
+        for element in report.sources[0].structural_elements
+        if element.kind == "function"
+    }
+    assert {
+        ("Circle", "Circle"),
+        ("Rectangle", "Rectangle"),
+        ("Rectangle", "Rectangle.unit"),
+        ("LoggedVector", "LoggedVector"),
+        ("Shape", "factory circle"),
+        ("CircleShape", "CircleShape"),
+    } <= functions
+
+
 def test_cli_outputs_json() -> None:
     _ensure_generated_parser()
     result = subprocess.run(

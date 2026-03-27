@@ -36,15 +36,15 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Top-level function | ✅ | |
 | Top-level getter | ✅ | |
 | Top-level setter | ✅ | |
-| Class method | ✅ | static and instance |
-| Class getter | ✅ | |
-| Class setter | ✅ | |
-| Constructor (default) | ✅ | block body only |
-| Constructor (named) | ✅ | block body only |
-| Constructor (redirecting `this(...)`) | ⬜ | no body to diagram |
-| Constructor (`const`) | ⬜ | no body to diagram |
-| Redirecting factory (`= ClassName`) | ⬜ | no body to diagram |
-| Factory constructor | ✅ | |
+| Class method | ✅ | static, instance, abstract, and external declarations |
+| Class getter | ✅ | concrete and abstract/external declarations |
+| Class setter | ✅ | concrete and abstract/external declarations |
+| Constructor (default) | ✅ | block-body and semicolon forms |
+| Constructor (named) | ✅ | block-body and semicolon forms |
+| Constructor (redirecting `this(...)`) | ✅ | discovered structurally; no function body to diagram |
+| Constructor (`const`) | ✅ | discovered structurally |
+| Redirecting factory (`= ClassName`) | ✅ | discovered structurally; no function body to diagram |
+| Factory constructor | ✅ | block-body and redirecting forms |
 | Operator overload | ✅ | |
 | Mixin method / getter | ✅ | |
 | Extension method / getter | ✅ | |
