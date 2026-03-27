@@ -16,6 +16,11 @@ class ActionFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class DeclarationFlowStep(ControlFlowStep):
+    declaration: str
+
+
+@dataclass(frozen=True, slots=True)
 class AwaitFlowStep(ControlFlowStep):
     expression: str
 
@@ -66,6 +71,24 @@ class PatternDeclarationFlowStep(ControlFlowStep):
 
 
 @dataclass(frozen=True, slots=True)
+class BlockFlowStep(ControlFlowStep):
+    steps: tuple[ControlFlowStep, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LabelFlowStep(ControlFlowStep):
+    labels: tuple[str, ...]
+    steps: tuple[ControlFlowStep, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LocalFunctionFlowStep(ControlFlowStep):
+    name: str
+    signature: str
+    steps: tuple[ControlFlowStep, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class IfFlowStep(ControlFlowStep):
     condition: str
     then_steps: tuple[ControlFlowStep, ...]
@@ -107,6 +130,11 @@ class SwitchFlowStep(ControlFlowStep):
 class SwitchExpressionFlowStep(ControlFlowStep):
     """Dart 3 switch expression: `final x = switch(v) { p => e, ... }`"""
     expression: str  # The full switch expression text
+
+
+@dataclass(frozen=True, slots=True)
+class SuperInitializerFlowStep(ControlFlowStep):
+    expression: str
 
 
 @dataclass(frozen=True, slots=True)

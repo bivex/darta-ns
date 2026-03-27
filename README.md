@@ -15,18 +15,22 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `for (init; cond; incr)` | ✅ | ✅ for block |
 | `for (x in collection)` | ✅ | ✅ for block |
 | `await for (x in stream)` | ✅ | ✅ purple accent + "Await for" header |
+| standalone `{ ... }` block statement | ✅ | ✅ nested block container |
 | `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
 | `switch(v) { p => e }` expression (Dart 3) | ✅ | ✅ teal accent + switch badge in standalone, `return`, and assignment/declaration forms |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
 | `throw expr` | ✅ | ✅ red accent + `throw` badge |
 | `await expr` | ✅ | ✅ purple accent + `await` badge in standalone, `return`, assignment, and nested expression forms |
+| arrow-body `=> expr` | ✅ | ✅ semantic `return` / `throw` / `await` / `switch` extraction |
 | `yield` / `yield*` | ✅ | ✅ green accent + `yield` / `yield*` badge |
 | `return expr` | ✅ | ✅ teal accent + `return` badge |
 | `rethrow` | ✅ | ✅ red accent + `rethrow` badge |
 | `assert(cond, msg?)` | ✅ | ✅ amber accent + `assert` badge |
 | `break` / `break label` | ✅ | ✅ orange accent + `break` badge |
 | `continue` / `continue label` | ✅ | ✅ orange accent + `continue` badge |
+| `label: statement` | ✅ | ✅ labeled container around the target statement |
+| local variable declaration | ✅ | ✅ blue `declare` badge instead of generic action |
 | `var (a, b) = expr` pattern variable | ✅ | ✅ blue accent + pattern destructuring |
 
 ### Function Discovery
@@ -39,8 +43,8 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Class method | ✅ | static, instance, abstract, and external declarations |
 | Class getter | ✅ | concrete and abstract/external declarations |
 | Class setter | ✅ | concrete and abstract/external declarations |
-| Constructor (default) | ✅ | block-body and semicolon forms |
-| Constructor (named) | ✅ | block-body and semicolon forms |
+| Constructor (default) | ✅ | block-body and semicolon forms; diagrams include field and `super(...)` initializers |
+| Constructor (named) | ✅ | block-body and semicolon forms; diagrams include field and `super(...)` initializers |
 | Constructor (redirecting `this(...)`) | ✅ | discovered structurally; no function body to diagram |
 | Constructor (`const`) | ✅ | discovered structurally |
 | Redirecting factory (`= ClassName`) | ✅ | discovered structurally; no function body to diagram |
@@ -50,7 +54,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Extension method / getter | ✅ | |
 | Extension type method | ✅ | |
 | Enum method / getter | ✅ | via `enumBody` member declarations |
-| Local function declaration | ✅ | discovered structurally inside enclosing function/method |
+| Local function declaration | ✅ | discovered structurally inside enclosing function/method and diagrammed as nested local-function step |
 
 ### Grammar
 
@@ -82,11 +86,11 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 
 - [x] Render Dart 3 `switch expression` as a first-class step in standalone, `return`, and assignment/declaration forms.
 - [x] Lift `return await` and other expression-contained `await` forms into explicit await steps instead of plain `return` / `action` labels.
-- [ ] Replace the `local function ...` placeholder action with a dedicated local-function step or an inline nested-body rendering mode.
-- [ ] Recognize arrow-body `=> expr` functions through semantic steps like `throw`, `await`, `switch`, and `return`.
-- [ ] Model plain local variable declarations as dedicated declaration steps instead of generic actions.
-- [ ] Preserve statement labels and standalone block statements as structural steps.
-- [ ] Differentiate constructor initializer forms like `super(...)` from generic action labels.
+- [x] Replace the `local function ...` placeholder action with a dedicated local-function step or an inline nested-body rendering mode.
+- [x] Recognize arrow-body `=> expr` functions through semantic steps like `throw`, `await`, `switch`, and `return`.
+- [x] Model plain local variable declarations as dedicated declaration steps instead of generic actions.
+- [x] Preserve statement labels and standalone block statements as structural steps.
+- [x] Differentiate constructor initializer forms like `super(...)` from generic action labels.
 
 ---
 

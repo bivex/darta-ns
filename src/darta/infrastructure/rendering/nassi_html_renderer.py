@@ -10,16 +10,21 @@ from darta.domain.control_flow import (
     ActionFlowStep,
     AssertFlowStep,
     AwaitFlowStep,
+    BlockFlowStep,
     BreakFlowStep,
     ContinueFlowStep,
     ControlFlowDiagram,
     ControlFlowStep,
+    DeclarationFlowStep,
     DoWhileFlowStep,
     ForInFlowStep,
     IfFlowStep,
+    LabelFlowStep,
+    LocalFunctionFlowStep,
     PatternDeclarationFlowStep,
     RethrowFlowStep,
     ReturnFlowStep,
+    SuperInitializerFlowStep,
     SwitchCaseFlow,
     SwitchExpressionFlowStep,
     SwitchFlowStep,
@@ -107,6 +112,11 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
         --jump-fill:   #1a1014;
         --throw-fill:  #24100f;
         --return-fill: #0e2b2e;
+        --declare-fill: #0f1f31;
+        --block-fill: #121c2c;
+        --label-fill: #281d0f;
+        --local-fill: #141f35;
+        --super-fill: #22180f;
         --yes-fill:    #102217;
         --no-fill:     #251019;
         --action-fill: var(--surface-2);
@@ -307,19 +317,28 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       }}
       /* ── Block type colours ── */
       .ns-loop,
-      .ns-do-while {{ background: var(--loop-fill); }}
+      .ns-do-while,
+      .ns-block {{ background: var(--loop-fill); }}
       .ns-switch   {{ background: var(--switch-fill); }}
       .ns-try-catch {{ background: var(--try-fill); }}
+      .ns-label-group {{ background: var(--label-fill); }}
+      .ns-local-function {{ background: var(--local-fill); }}
 
       .ns-switch   > .ns-header,
       .case-title              {{ background: var(--teal-dim);   color: var(--teal);   }}
       .ns-try-catch > .ns-header {{ background: var(--purple-dim); color: var(--purple); }}
+      .ns-block > .ns-header {{ background: #1a2940; color: var(--blue); }}
+      .ns-label-group > .ns-header {{ background: #33240f; color: var(--orange); }}
+      .ns-local-function > .ns-header {{ background: #182846; color: var(--blue); }}
 
       /* Left accent stripes */
       .ns-node.ns-loop,
-      .ns-node.ns-do-while {{ border-left: 3px solid var(--blue); }}
+      .ns-node.ns-do-while,
+      .ns-node.ns-block {{ border-left: 3px solid var(--blue); }}
       .ns-node.ns-switch   {{ border-left: 3px solid var(--teal); }}
       .ns-node.ns-try-catch {{ border-left: 3px solid var(--purple); }}
+      .ns-node.ns-label-group {{ border-left: 3px solid var(--orange); }}
+      .ns-node.ns-local-function {{ border-left: 3px solid var(--blue); }}
       .ns-await {{ background: var(--await-fill); border-left: 3px solid var(--purple); }}
       .ns-await .ns-label {{ color: var(--purple); }}
       .ns-yield {{ background: var(--yield-fill); border-left: 3px solid var(--green); }}
@@ -338,6 +357,10 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-return .ns-label {{ color: var(--teal); }}
       .ns-pattern-decl {{ background: #0e1f2e; border-left: 3px solid var(--blue); }}
       .ns-pattern-decl .ns-label {{ color: var(--blue); }}
+      .ns-declare {{ background: var(--declare-fill); border-left: 3px solid var(--blue); }}
+      .ns-declare .ns-label {{ color: var(--blue); }}
+      .ns-super {{ background: var(--super-fill); border-left: 3px solid var(--amber); }}
+      .ns-super .ns-label {{ color: var(--amber); }}
       .ns-switch-expr {{ background: #0f2030; border-left: 3px solid var(--teal); }}
       .ns-switch-expr .ns-label {{ color: var(--teal); }}
       .step-tag {{ font-size: 10px; font-weight: 700; letter-spacing: .05em;
@@ -350,6 +373,8 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
       .ns-throw .step-tag {{ color: var(--red); }}
       .ns-return .step-tag {{ color: var(--teal); }}
       .ns-pattern-decl .step-tag {{ color: var(--blue); }}
+      .ns-declare .step-tag {{ color: var(--blue); }}
+      .ns-super .step-tag {{ color: var(--amber); }}
       .ns-switch-expr .step-tag {{ color: var(--teal); }}
 
       /* Depth tinting */
@@ -614,6 +639,15 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 "</div>"
                 "</div>"
             )
+        if isinstance(step, DeclarationFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-declare">'
+                f'<div class="ns-label" aria-label="Declare {escape(step.declaration)}">'
+                '<span class="step-tag">declare</span>'
+                f'<code class="action-text">{escape(step.declaration)}</code>'
+                "</div>"
+                "</div>"
+            )
         if isinstance(step, YieldFlowStep):
             tag = "yield*" if step.is_each else "yield"
             return (
@@ -691,6 +725,15 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 "</div>"
                 "</div>"
             )
+        if isinstance(step, SuperInitializerFlowStep):
+            return (
+                '<div class="ns-node ns-action ns-super">'
+                f'<div class="ns-label" aria-label="Super initializer {escape(step.expression)}">'
+                '<span class="step-tag">super</span>'
+                f'<code class="action-text">{escape(step.expression)}</code>'
+                "</div>"
+                "</div>"
+            )
         if isinstance(step, SwitchExpressionFlowStep):
             return (
                 '<div class="ns-node ns-action ns-switch-expr">'
@@ -699,6 +742,24 @@ class HtmlNassiDiagramRenderer(NassiDiagramRenderer):
                 f'<code class="action-text">{escape(step.expression)}</code>'
                 "</div>"
                 "</div>"
+            )
+        if isinstance(step, BlockFlowStep):
+            return self._render_single_body("Block", step.steps, depth=depth, css_class="ns-block")
+        if isinstance(step, LabelFlowStep):
+            prefix = "Labels" if len(step.labels) > 1 else "Label"
+            labels = ", ".join(step.labels)
+            return self._render_single_body(
+                f"{prefix} {labels}",
+                step.steps,
+                depth=depth,
+                css_class="ns-block ns-label-group",
+            )
+        if isinstance(step, LocalFunctionFlowStep):
+            return self._render_single_body(
+                f"Local function {step.signature}",
+                step.steps,
+                depth=depth,
+                css_class="ns-block ns-local-function",
             )
         if isinstance(step, ActionFlowStep):
             return (

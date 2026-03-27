@@ -166,6 +166,15 @@ Future<String> decorateGreeting(Future<String> source) async {
   return _tag(await source);
 }
 
+int scopedCounter(int start) {
+  var total = start;
+  {
+    final delta = 1;
+    total += delta;
+  }
+  return total;
+}
+
 // ── 10. Local function declarations ───────────────────────────────────────────
 
 String formatTaggedValue(int value) {
@@ -324,6 +333,13 @@ mixin Loggable {
 
 class LoggedVector extends Vector2 with Loggable {
   LoggedVector(super.x, super.y);
+
+  LoggedVector.origin(String label) : super(0, 0) {
+    if (label.isEmpty) {
+      throw ArgumentError('label must not be empty');
+    }
+    log(label);
+  }
 
   Vector2 addLogged(Vector2 other) {
     final result = this + other;

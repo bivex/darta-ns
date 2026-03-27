@@ -11,18 +11,23 @@ from darta.domain.control_flow import (
     ActionFlowStep,
     AssertFlowStep,
     AwaitFlowStep,
+    BlockFlowStep,
     BreakFlowStep,
     CatchClauseFlow,
     ContinueFlowStep,
     ControlFlowDiagram,
     ControlFlowStep,
+    DeclarationFlowStep,
     DoWhileFlowStep,
     ForInFlowStep,
     FunctionControlFlow,
     IfFlowStep,
+    LabelFlowStep,
+    LocalFunctionFlowStep,
     PatternDeclarationFlowStep,
     RethrowFlowStep,
     ReturnFlowStep,
+    SuperInitializerFlowStep,
     SwitchCaseFlow,
     SwitchExpressionFlowStep,
     SwitchFlowStep,
@@ -299,13 +304,9 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
         def _extract_function_body(self, function_body_ctx) -> tuple[ControlFlowStep, ...]:
             if function_body_ctx is None:
                 return ()
-            # Arrow function: (async?) => expression ;
-            # Check for expression() in arrow-form — functionBody has expression() when it's =>
             expr = function_body_ctx.expression() if hasattr(function_body_ctx, "expression") else None
             if expr is not None and function_body_ctx.block() is None:
-                expr_text = context.compact(expr)
-                return (ActionFlowStep(f"=> {expr_text}"),)
-            # Block body
+                return self._extract_arrow_function_body(expr)
             if function_body_ctx.block() is not None:
                 return self._extract_block(function_body_ctx.block())
             return ()
@@ -317,6 +318,9 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
 
             steps: list[ControlFlowStep] = []
             for entry in initializers.initializerListEntry():
+                if entry.SUPER() is not None:
+                    steps.append(SuperInitializerFlowStep(expression=context.compact(entry)))
+                    continue
                 if entry.fieldInitializer() is not None:
                     steps.extend(self._extract_field_initializer_steps(entry.fieldInitializer()))
                     continue
@@ -361,8 +365,12 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             # statement : label* nonLabelledStatement
             nls = statement_ctx.nonLabelledStatement()
             if nls is None:
-                return ActionFlowStep(context.compact(statement_ctx))
-            return self._extract_non_labelled_statement(nls)
+                step: ControlFlowStep | tuple[ControlFlowStep, ...] | None = ActionFlowStep(
+                    context.compact(statement_ctx)
+                )
+            else:
+                step = self._extract_non_labelled_statement(nls)
+            return self._wrap_statement_labels(statement_ctx, step)
 
         def _extract_non_labelled_statement(self, ctx) -> ControlFlowStep | tuple[ControlFlowStep, ...] | None:
             if ctx.ifStatement() is not None:
@@ -380,7 +388,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if ctx.block() is not None:
                 steps = self._extract_block(ctx.block())
                 if steps:
-                    return ActionFlowStep("{ ... }")
+                    return BlockFlowStep(steps=steps)
                 return None
             if ctx.rethrowStatement() is not None:
                 return RethrowFlowStep()
@@ -454,11 +462,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     if steps:
                         return steps
             if ctx.localFunctionDeclaration() is not None:
-                lfd = ctx.localFunctionDeclaration()
-                func_sig = lfd.functionSignature() if hasattr(lfd, "functionSignature") else None
-                if func_sig is not None and func_sig.identifier() is not None:
-                    return ActionFlowStep(f"local function {func_sig.identifier().getText()}")
-                return ActionFlowStep("local function")
+                return self._extract_local_function_step(ctx.localFunctionDeclaration())
             return ActionFlowStep(context.compact(ctx))
 
         # ── Statement extractors ────────────────────────────────────────────
@@ -474,9 +478,28 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             if statement_ctx is None:
                 return ()
             nls = statement_ctx.nonLabelledStatement()
-            if nls is not None and nls.block() is not None:
+            if nls is not None and nls.block() is not None and not statement_ctx.label():
                 return self._extract_block(nls.block())
             return self._extract_statement_steps(statement_ctx)
+
+        def _extract_arrow_function_body(self, expression_ctx) -> tuple[ControlFlowStep, ...]:
+            expression_text = context.compact(expression_ctx)
+            if expression_text.startswith("throw "):
+                return (ThrowFlowStep(expression_text[len("throw "):].strip()),)
+            embedded_await_steps = self._extract_expression_await_steps(
+                expression_ctx,
+                build_final_step=self._build_return_step,
+            )
+            if embedded_await_steps:
+                return embedded_await_steps
+            switch_expression_step = self._extract_switch_expression_step(
+                expression_ctx,
+                prefix="return ",
+                suffix="",
+            )
+            if switch_expression_step is not None:
+                return (switch_expression_step,)
+            return (ReturnFlowStep(expression=expression_text),)
 
         def _extract_return_statement(self, return_ctx) -> ControlFlowStep | tuple[ControlFlowStep, ...]:
             expr = return_ctx.expression()
@@ -551,12 +574,18 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             expression = context.compact(switch_ctx.expression())
             cases: list[SwitchCaseFlow] = []
             for case_ctx in (switch_ctx.switchStatementCase() or []):
-                label = f"case {context.compact(case_ctx.guardedPattern())}"
+                label_prefix = "".join(f"{label_ctx.identifier().getText()}: " for label_ctx in case_ctx.label())
+                label = f"{label_prefix}case {context.compact(case_ctx.guardedPattern())}"
                 steps = self._extract_statements(case_ctx.statements())
                 cases.append(SwitchCaseFlow(label=label, steps=steps))
             if switch_ctx.switchStatementDefault() is not None:
-                steps = self._extract_statements(switch_ctx.switchStatementDefault().statements())
-                cases.append(SwitchCaseFlow(label="default", steps=steps))
+                default_ctx = switch_ctx.switchStatementDefault()
+                label_prefix = "".join(
+                    f"{label_ctx.identifier().getText()}: "
+                    for label_ctx in default_ctx.label()
+                )
+                steps = self._extract_statements(default_ctx.statements())
+                cases.append(SwitchCaseFlow(label=f"{label_prefix}default", steps=steps))
             return SwitchFlowStep(expression=expression, cases=tuple(cases))
 
         def _extract_try_statement(self, try_ctx) -> TryCatchFlowStep:
@@ -620,16 +649,28 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             steps: list[ControlFlowStep] = []
 
             if declaration_ctx.expression() is not None:
-                steps.extend(self._steps_for_assignment_target(base_name, declaration_ctx.expression()))
+                steps.extend(
+                    self._steps_for_assignment_target(
+                        base_name,
+                        declaration_ctx.expression(),
+                        as_declaration=True,
+                    )
+                )
+            else:
+                steps.append(DeclarationFlowStep(f"{base_name};"))
 
             for initialized_identifier in declaration_ctx.initializedIdentifier():
                 identifier = context.compact(initialized_identifier.identifier())
                 if initialized_identifier.expression() is not None:
                     steps.extend(
-                        self._steps_for_assignment_target(identifier, initialized_identifier.expression())
+                        self._steps_for_assignment_target(
+                            identifier,
+                            initialized_identifier.expression(),
+                            as_declaration=True,
+                        )
                     )
                 else:
-                    steps.append(ActionFlowStep(f"{identifier};"))
+                    steps.append(DeclarationFlowStep(f"{identifier};"))
 
             return tuple(steps)
 
@@ -639,6 +680,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             expression_ctx,
             *,
             include_semicolon: bool = True,
+            as_declaration: bool = False,
         ) -> tuple[ControlFlowStep, ...]:
             expression_text = context.compact(expression_ctx)
             suffix = ";" if include_semicolon else ""
@@ -648,6 +690,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
                     target,
                     rewritten_expression,
                     suffix=suffix,
+                    as_declaration=as_declaration,
                 ),
             )
             if embedded_await_steps:
@@ -659,7 +702,10 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             )
             if switch_expression_step is not None:
                 return (switch_expression_step,)
-            return (ActionFlowStep(f"{target} = {expression_text}{suffix}"),)
+            rendered_expression = f"{target} = {expression_text}{suffix}"
+            if as_declaration:
+                return (DeclarationFlowStep(rendered_expression),)
+            return (ActionFlowStep(rendered_expression),)
 
         def _extract_switch_expression_step(
             self,
@@ -760,6 +806,7 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             expression_text: str,
             *,
             suffix: str,
+            as_declaration: bool = False,
         ) -> ControlFlowStep:
             rendered_expression = f"{target} = {expression_text}{suffix}"
             switch_expression_step = self._build_switch_expression_step_from_text(
@@ -767,7 +814,35 @@ def _build_control_flow_visitor(visitor_base: type, context: _ExtractorContext) 
             )
             if switch_expression_step is not None:
                 return switch_expression_step
+            if as_declaration:
+                return DeclarationFlowStep(rendered_expression)
             return ActionFlowStep(rendered_expression)
+
+        def _extract_local_function_step(self, local_function_ctx) -> LocalFunctionFlowStep:
+            function_signature = local_function_ctx.functionSignature()
+            signature = context.compact(function_signature)
+            identifier = function_signature.identifier() if hasattr(function_signature, "identifier") else None
+            name = identifier.getText() if identifier is not None else "local function"
+            return LocalFunctionFlowStep(
+                name=name,
+                signature=signature,
+                steps=self._extract_function_body(local_function_ctx.functionBody()),
+            )
+
+        def _wrap_statement_labels(
+            self,
+            statement_ctx,
+            step: ControlFlowStep | tuple[ControlFlowStep, ...] | None,
+        ) -> ControlFlowStep | tuple[ControlFlowStep, ...] | None:
+            if step is None:
+                return None
+
+            labels = tuple(label_ctx.identifier().getText() for label_ctx in statement_ctx.label())
+            if not labels:
+                return step
+
+            wrapped_steps = step if isinstance(step, tuple) else (step,)
+            return LabelFlowStep(labels=labels, steps=wrapped_steps)
 
         def _build_switch_expression_step_from_text(
             self,

@@ -115,6 +115,10 @@ def test_nassi_diagram_renders_constructor_initializers_and_await_assignments() 
     assert "_recordTag(_tag(&lt;await result&gt;));" in document.html
     assert "combined += &lt;await result&gt;;" in document.html
     assert "Return _tag(&lt;await result&gt;)" in document.html
+    assert "Local function String helper(String prefix)" in document.html
+    assert "Label outer" in document.html
+    assert "Block" in document.html
+    assert "super(0, 0)" in document.html
     assert "Await for final event in Stream.fromIterable([1, 2, 3])" in document.html
     assert "return switch (n)" in document.html
     assert "return switch (code)" in document.html
@@ -193,6 +197,83 @@ void logMessage(String value) {}
     assert "logMessage(tag(&lt;await result&gt;));" in document.html
     assert "current += &lt;await result&gt;;" in document.html
     assert "Return tag(&lt;await result&gt;)" in document.html
+
+
+def test_nassi_diagram_renders_local_functions_labels_blocks_arrow_bodies_and_super_initializers(
+    tmp_path: Path,
+) -> None:
+    service = _build_service()
+    source_path = tmp_path / "structural_steps.dart"
+    source_path.write_text(
+        """
+class Base {
+  Base(int value);
+  Base.named(int value);
+}
+
+class Derived extends Base {
+  Derived(int value) : super(value) {
+    if (value < 0) {
+      throw ArgumentError('value must be positive');
+    }
+  }
+
+  Derived.named() : super.named(1) {}
+}
+
+String arrowValue(String value) => value;
+
+Never arrowThrow() => throw StateError('boom');
+
+Future<String> arrowAwait(Future<String> source) async => await source;
+
+String arrowSwitch(int code) => switch (code) {
+  0 => 'zero',
+  _ => 'other',
+};
+
+int scopedCounter(int start) {
+  var total = start;
+  scoped:
+  {
+    final delta = 1;
+    total += delta;
+    if (total > 10) {
+      break scoped;
+    }
+  }
+  return total;
+}
+
+String outer(int value) {
+  String helper(String prefix) {
+    if (value > 0) {
+      return prefix;
+    }
+    return 'empty';
+  }
+
+  return helper('done');
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    document = service.build_file_diagram(BuildNassiDiagramCommand(path=str(source_path)))
+
+    assert "Return value" in document.html
+    assert "Throw StateError(&#x27;boom&#x27;)" in document.html
+    assert "Await source" in document.html
+    assert "Return &lt;await result&gt;" in document.html
+    assert "return switch (code)" in document.html
+    assert "Local function String helper(String prefix)" in document.html
+    assert "Label scoped" in document.html
+    assert "Block" in document.html
+    assert "Declare var total = start;" in document.html
+    assert "Declare final delta = 1;" in document.html
+    assert "super(value)" in document.html
+    assert "super.named(1)" in document.html
+    assert "=&gt; value" not in document.html
 
 
 def test_nassi_cli_writes_html_file(tmp_path: Path) -> None:
