@@ -160,7 +160,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=sig,
                 )
-                return None
+                return self._visit_function_body(ctx.functionBody(), name)
 
             # getterSignature functionBody
             if ctx.getterSignature() is not None and ctx.functionBody() is not None:
@@ -174,7 +174,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=f"get {base_name}",
                 )
-                return None
+                return self._visit_function_body(ctx.functionBody(), name)
 
             # setterSignature functionBody
             if ctx.setterSignature() is not None and ctx.functionBody() is not None:
@@ -188,7 +188,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=f"set {base_name}",
                 )
-                return None
+                return self._visit_function_body(ctx.functionBody(), name)
 
             # Top-level variables/constants — skip, visit children for class/etc.
             return self.visitChildren(ctx)
@@ -211,7 +211,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=sig,
                 )
-                return None
+                return self._visit_function_body(ctx.functionBody(), name)
 
             # getterSignature
             getter_sig = method_sig.getterSignature() if hasattr(method_sig, "getterSignature") else None
@@ -225,7 +225,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=f"get {base_name}",
                 )
-                return None
+                return self._visit_function_body(ctx.functionBody(), name)
 
             # setterSignature
             setter_sig = method_sig.setterSignature() if hasattr(method_sig, "setterSignature") else None
@@ -239,7 +239,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=f"set {base_name}",
                 )
-                return None
+                return self._visit_function_body(ctx.functionBody(), name)
 
             # constructorSignature (regular and named constructors)
             ctor_sig = method_sig.constructorSignature() if hasattr(method_sig, "constructorSignature") else None
@@ -250,7 +250,10 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=ctor_sig.getText(),
                 )
-                return None
+                return self._visit_function_body(
+                    ctx.functionBody(),
+                    _name_from_constructor_signature(ctor_sig),
+                )
 
             # factoryConstructorSignature
             factory_sig = method_sig.factoryConstructorSignature() if hasattr(method_sig, "factoryConstructorSignature") else None
@@ -261,7 +264,10 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=factory_sig.getText(),
                 )
-                return None
+                return self._visit_function_body(
+                    ctx.functionBody(),
+                    _name_from_factory_constructor_signature(factory_sig),
+                )
 
             # operatorSignature
             op_sig = method_sig.operatorSignature() if hasattr(method_sig, "operatorSignature") else None
@@ -272,9 +278,25 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     ctx,
                     signature=op_sig.getText(),
                 )
-                return None
+                return self._visit_function_body(
+                    ctx.functionBody(),
+                    _name_from_operator_signature(op_sig),
+                )
 
             return self.visitChildren(ctx)
+
+        def visitLocalFunctionDeclaration(self, ctx):
+            func_sig = ctx.functionSignature() if hasattr(ctx, "functionSignature") else None
+            body = ctx.functionBody() if hasattr(ctx, "functionBody") else None
+            name = func_sig.identifier().getText() if func_sig and func_sig.identifier() else "function"
+            signature = func_sig.getText() if func_sig is not None else "function"
+            self._append(
+                StructuralElementKind.FUNCTION,
+                name,
+                ctx,
+                signature=signature,
+            )
+            return self._visit_function_body(body, name)
 
         def visitDeclaration(self, ctx):
             factory_sig = (
@@ -396,6 +418,11 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     signature=signature,
                 )
             )
+
+        def _visit_function_body(self, function_body_ctx, name: str):
+            if function_body_ctx is None:
+                return None
+            return self._with_container(name, lambda: self.visit(function_body_ctx))
 
         def _with_container(self, name: str, callback):
             self._containers.append(name)

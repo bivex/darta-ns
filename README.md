@@ -50,7 +50,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Extension method / getter | ✅ | |
 | Extension type method | ✅ | |
 | Enum method / getter | ✅ | via `enumBody` member declarations |
-| Local function declaration | ⬜ | shown as action label |
+| Local function declaration | ✅ | discovered structurally inside enclosing function/method |
 
 ### Grammar
 

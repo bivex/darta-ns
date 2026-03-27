@@ -184,6 +184,54 @@ class CircleShape implements Shape {
     } <= functions
 
 
+def test_parse_file_extracts_local_function_declarations(tmp_path: Path) -> None:
+    service = _build_service()
+    source_path = tmp_path / "local_functions.dart"
+    source_path.write_text(
+        """
+void outer() {
+  int helper(int x) {
+    String nested(String prefix) {
+      return '$prefix$x';
+    }
+
+    return int.parse(nested('v'));
+  }
+
+  helper(2);
+}
+
+class Box {
+  int compute() {
+    int doubleIt(int value) {
+      return value * 2;
+    }
+
+    return doubleIt(21);
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = service.parse_file(ParseFileCommand(path=str(source_path)))
+
+    assert report.summary.source_count == 1
+    assert report.summary.technical_failure_count == 0
+    functions = {
+        (element.container, element.name)
+        for element in report.sources[0].structural_elements
+        if element.kind == "function"
+    }
+    assert {
+        (None, "outer"),
+        ("outer", "helper"),
+        ("outer.helper", "nested"),
+        ("Box", "compute"),
+        ("Box.compute", "doubleIt"),
+    } <= functions
+
+
 def test_cli_outputs_json() -> None:
     _ensure_generated_parser()
     result = subprocess.run(
