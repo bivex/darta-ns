@@ -531,8 +531,14 @@ extension type UserLabel(String value) {
 }
 
 // Stubs so the file compiles independently.
+final _tagLog = <String>[];
+
 String _tag(String value) => '[$value]';
-void _recordTag(String value) {}
+
+void _recordTag(String value) {
+  _tagLog.add(value);
+}
+
 double _cos(double r) => r;
 double _sin(double r) => r;
 double _sqrt(double v) => v;

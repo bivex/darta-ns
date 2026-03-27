@@ -15,14 +15,14 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `for (init; cond; incr)` | ✅ | ✅ for block |
 | `for (x in collection)` | ✅ | ✅ for block |
 | `await for (x in stream)` | ✅ | ✅ purple accent + "Await for" header |
-| standalone `{ ... }` block statement | ✅ | ✅ nested block container |
+| `standalone { ... }` block statement | ✅ | ✅ nested block container |
 | `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
 | `switch(v) { p => e }` expression (Dart 3) | ✅ | ✅ teal accent + switch badge in standalone, `return`, and assignment/declaration forms |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
 | `throw expr` | ✅ | ✅ red accent + `throw` badge |
 | `await expr` | ✅ | ✅ purple accent + `await` badge in standalone, `return`, assignment, and nested expression forms |
-| arrow-body `=> expr` | ✅ | ✅ semantic `return` / `throw` / `await` / `switch` extraction |
+| `=> expr` arrow body | ✅ | ✅ semantic `return` / `throw` / `await` / `switch` extraction |
 | `yield` / `yield*` | ✅ | ✅ green accent + `yield` / `yield*` badge |
 | `return expr` | ✅ | ✅ teal accent + `return` badge |
 | `rethrow` | ✅ | ✅ red accent + `rethrow` badge |
@@ -30,7 +30,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | `break` / `break label` | ✅ | ✅ orange accent + `break` badge |
 | `continue` / `continue label` | ✅ | ✅ orange accent + `continue` badge |
 | `label: statement` | ✅ | ✅ labeled container around the target statement |
-| local variable declaration | ✅ | ✅ blue `declare` badge instead of generic action |
+| `var` / `final` local declaration | ✅ | ✅ blue `declare` badge instead of generic action |
 | `var (a, b) = expr` pattern variable | ✅ | ✅ blue accent + pattern destructuring |
 
 ### Function Discovery
@@ -80,17 +80,7 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Responsive layout | ✅ |
 | Directory index page | ✅ |
 
----
-
-## Step Backlog
-
-- [x] Render Dart 3 `switch expression` as a first-class step in standalone, `return`, and assignment/declaration forms.
-- [x] Lift `return await` and other expression-contained `await` forms into explicit await steps instead of plain `return` / `action` labels.
-- [x] Replace the `local function ...` placeholder action with a dedicated local-function step or an inline nested-body rendering mode.
-- [x] Recognize arrow-body `=> expr` functions through semantic steps like `throw`, `await`, `switch`, and `return`.
-- [x] Model plain local variable declarations as dedicated declaration steps instead of generic actions.
-- [x] Preserve statement labels and standalone block statements as structural steps.
-- [x] Differentiate constructor initializer forms like `super(...)` from generic action labels.
+Recent coverage additions include semantic arrow-body extraction, explicit embedded-`await` steps, nested local-function containers, declaration badges, labeled statement containers, standalone block steps, and constructor `super(...)` initializer steps.
 
 ---
 
@@ -138,7 +128,7 @@ uv run darta nassi-dir path/to/project --out output/nassi-bundle
 uv run darta parse-file path/to/file.dart
 ```
 
-See `examples/feature_tour.dart` for a single file that exercises the main control-flow constructs and representative structural extraction edges.
+See `examples/feature_tour.dart` for a single file that exercises the main control-flow constructs and representative structural extraction edges, including semantic arrow bodies, labels, local functions, and constructor initializer steps.
 
 ---
 
