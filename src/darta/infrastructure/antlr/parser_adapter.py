@@ -103,7 +103,7 @@ def _build_structure_visitor(visitor_base: type) -> type:
             # Dart3: enumType uses classNameMaybePrimary
             name = _name_from_class_name_maybe_primary(ctx.classNameMaybePrimary())
             self._append(StructuralElementKind.ENUM, name, ctx, signature=f"enum {name}")
-            return None
+            return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitClassDeclaration(self, ctx):
             cnmp = ctx.classNameMaybePrimary() if hasattr(ctx, "classNameMaybePrimary") else None
@@ -146,12 +146,8 @@ def _build_structure_visitor(visitor_base: type) -> type:
             return self._with_container(name, lambda: self.visitChildren(ctx))
 
         def visitTopLevelDeclaration(self, ctx):
-            # functionSignature functionBody (not AUGMENT-only or EXTERNAL-only)
-            if (
-                ctx.functionSignature() is not None
-                and ctx.functionBody() is not None
-            ):
-                func_sig = ctx.functionSignature()
+            func_sig = ctx.functionSignature() if hasattr(ctx, "functionSignature") else None
+            if func_sig is not None:
                 name = func_sig.identifier().getText() if func_sig.identifier() else "function"
                 sig = func_sig.getText()
                 self._append(
@@ -162,10 +158,9 @@ def _build_structure_visitor(visitor_base: type) -> type:
                 )
                 return self._visit_function_body(ctx.functionBody(), name)
 
-            # getterSignature functionBody
-            if ctx.getterSignature() is not None and ctx.functionBody() is not None:
-                getter = ctx.getterSignature()
-                ident = getter.identifier()
+            getter_sig = ctx.getterSignature() if hasattr(ctx, "getterSignature") else None
+            if getter_sig is not None:
+                ident = getter_sig.identifier()
                 base_name = ident.getText() if ident else "get"
                 name = f"get {base_name}"
                 self._append(
@@ -176,10 +171,9 @@ def _build_structure_visitor(visitor_base: type) -> type:
                 )
                 return self._visit_function_body(ctx.functionBody(), name)
 
-            # setterSignature functionBody
-            if ctx.setterSignature() is not None and ctx.functionBody() is not None:
-                setter = ctx.setterSignature()
-                ident = setter.identifier()
+            setter_sig = ctx.setterSignature() if hasattr(ctx, "setterSignature") else None
+            if setter_sig is not None:
+                ident = setter_sig.identifier()
                 base_name = ident.getText() if ident else "set"
                 name = f"set {base_name}"
                 self._append(
@@ -190,7 +184,46 @@ def _build_structure_visitor(visitor_base: type) -> type:
                 )
                 return self._visit_function_body(ctx.functionBody(), name)
 
-            # Top-level variables/constants — skip, visit children for class/etc.
+            static_final_declarations = (
+                ctx.staticFinalDeclarationList()
+                if hasattr(ctx, "staticFinalDeclarationList")
+                else None
+            )
+            if static_final_declarations is not None:
+                kind = (
+                    StructuralElementKind.CONSTANT
+                    if ctx.CONST() is not None
+                    else StructuralElementKind.VARIABLE
+                )
+                self._append_static_final_declarations(
+                    kind,
+                    static_final_declarations,
+                    signature=ctx.getText(),
+                )
+                return None
+
+            initialized_identifier_list = (
+                ctx.initializedIdentifierList()
+                if hasattr(ctx, "initializedIdentifierList")
+                else None
+            )
+            if initialized_identifier_list is not None:
+                self._append_initialized_identifiers(
+                    StructuralElementKind.VARIABLE,
+                    initialized_identifier_list,
+                    signature=ctx.getText(),
+                )
+                return None
+
+            identifier_list = ctx.identifierList() if hasattr(ctx, "identifierList") else None
+            if identifier_list is not None:
+                self._append_identifiers(
+                    StructuralElementKind.VARIABLE,
+                    identifier_list,
+                    signature=ctx.getText(),
+                )
+                return None
+
             return self.visitChildren(ctx)
 
         # ── Class members ───────────────────────────────────────────────────
@@ -402,6 +435,46 @@ def _build_structure_visitor(visitor_base: type) -> type:
                 )
                 return None
 
+            static_final_declarations = (
+                ctx.staticFinalDeclarationList()
+                if hasattr(ctx, "staticFinalDeclarationList")
+                else None
+            )
+            if static_final_declarations is not None:
+                kind = (
+                    StructuralElementKind.CONSTANT
+                    if ctx.CONST() is not None
+                    else StructuralElementKind.VARIABLE
+                )
+                self._append_static_final_declarations(
+                    kind,
+                    static_final_declarations,
+                    signature=ctx.getText(),
+                )
+                return None
+
+            initialized_identifier_list = (
+                ctx.initializedIdentifierList()
+                if hasattr(ctx, "initializedIdentifierList")
+                else None
+            )
+            if initialized_identifier_list is not None:
+                self._append_initialized_identifiers(
+                    StructuralElementKind.VARIABLE,
+                    initialized_identifier_list,
+                    signature=ctx.getText(),
+                )
+                return None
+
+            identifier_list = ctx.identifierList() if hasattr(ctx, "identifierList") else None
+            if identifier_list is not None:
+                self._append_identifiers(
+                    StructuralElementKind.VARIABLE,
+                    identifier_list,
+                    signature=ctx.getText(),
+                )
+                return None
+
             return self.visitChildren(ctx)
 
         # ── Helpers ─────────────────────────────────────────────────────────
@@ -418,6 +491,30 @@ def _build_structure_visitor(visitor_base: type) -> type:
                     signature=signature,
                 )
             )
+
+        def _append_identifiers(self, kind, identifier_list_ctx, signature: str | None = None) -> None:
+            for identifier_ctx in identifier_list_ctx.identifier():
+                self._append(kind, identifier_ctx.getText(), identifier_ctx, signature=signature)
+
+        def _append_initialized_identifiers(
+            self,
+            kind,
+            initialized_identifier_list_ctx,
+            signature: str | None = None,
+        ) -> None:
+            for initialized_identifier_ctx in initialized_identifier_list_ctx.initializedIdentifier():
+                identifier_ctx = initialized_identifier_ctx.identifier()
+                self._append(kind, identifier_ctx.getText(), identifier_ctx, signature=signature)
+
+        def _append_static_final_declarations(
+            self,
+            kind,
+            static_final_declaration_list_ctx,
+            signature: str | None = None,
+        ) -> None:
+            for declaration_ctx in static_final_declaration_list_ctx.staticFinalDeclaration():
+                identifier_ctx = declaration_ctx.identifier()
+                self._append(kind, identifier_ctx.getText(), identifier_ctx, signature=signature)
 
         def _visit_function_body(self, function_body_ctx, name: str):
             if function_body_ctx is None:

@@ -83,7 +83,54 @@ enum Mode {
 
     assert report.summary.source_count == 1
     assert report.summary.technical_failure_count == 0
-    assert {element.kind for element in report.sources[0].structural_elements} >= {"enum"}
+    assert {element.kind for element in report.sources[0].structural_elements} >= {"enum", "function"}
+    functions = {
+        (element.container, element.name)
+        for element in report.sources[0].structural_elements
+        if element.kind == "function"
+    }
+    assert ("Mode", "get title") in functions
+
+
+def test_parse_file_extracts_variables_and_constants(tmp_path: Path) -> None:
+    service = _build_service()
+    source_path = tmp_path / "variables_and_constants.dart"
+    source_path.write_text(
+        """
+const topConst = 1;
+final topFinal = 2;
+var first = 3, second = 4;
+
+class Box {
+  static const answer = 42;
+  static final cached = 'x';
+  final int value;
+  int count = 0;
+
+  Box(this.value);
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    report = service.parse_file(ParseFileCommand(path=str(source_path)))
+
+    assert report.summary.source_count == 1
+    assert report.summary.technical_failure_count == 0
+    elements = {
+        (element.container, element.kind, element.name)
+        for element in report.sources[0].structural_elements
+    }
+    assert {
+        (None, "constant", "topConst"),
+        (None, "variable", "topFinal"),
+        (None, "variable", "first"),
+        (None, "variable", "second"),
+        ("Box", "constant", "answer"),
+        ("Box", "variable", "cached"),
+        ("Box", "variable", "value"),
+        ("Box", "variable", "count"),
+    } <= elements
 
 
 def test_parse_file_extracts_member_constructors_and_operator_overloads(tmp_path: Path) -> None:

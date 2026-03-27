@@ -111,6 +111,7 @@ def test_nassi_diagram_renders_constructor_initializers_and_await_assignments() 
     assert "Action y = length * _sin(radians)" in document.html
     assert "Await source" in document.html
     assert "final raw = &lt;await result&gt;;" in document.html
+    assert "Await for final event in Stream.fromIterable([1, 2, 3])" in document.html
 
 
 def test_nassi_cli_writes_html_file(tmp_path: Path) -> None:

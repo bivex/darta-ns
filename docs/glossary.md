@@ -20,6 +20,12 @@
 `Structural Element`
 : One extracted item in the structural model, such as an import, type alias, class, enum, mixin, extension, function, variable, or constant.
 
+`Container`
+: The optional dotted owner path for a `StructuralElement` or `Function Control Flow`, such as `Vector2` or `formatTaggedValue.helper`.
+
+`Qualified Name`
+: The stable dotted name derived from a local name plus its optional `Container`.
+
 `Syntax Diagnostic`
 : A parser-reported issue with location, severity, and message.
 

@@ -122,7 +122,7 @@ uv run darta nassi-dir path/to/project --out output/nassi-bundle
 uv run darta parse-file path/to/file.dart
 ```
 
-See `examples/feature_tour.dart` for a single file that exercises every supported construct.
+See `examples/feature_tour.dart` for a single file that exercises the main control-flow constructs and representative structural extraction edges.
 
 ---
 

@@ -1,5 +1,5 @@
-/// Darta feature tour — one file that exercises every construct
-/// the extractor currently handles. Run:
+/// Darta feature tour — one file that exercises the main control-flow
+/// constructs and representative structural edges the extractors handle. Run:
 ///
 ///   uv run darta nassi-file examples/feature_tour.dart
 ///
@@ -177,6 +177,8 @@ String formatTaggedValue(int value) {
 // ── 11. Class: block-body constructors, getter, setter, operator ─────────────
 
 class Vector2 {
+  static const dimensions = 2;
+
   final double x;
   final double y;
 
@@ -255,6 +257,8 @@ class Vector2 {
 // ── 12. Abstract class / getter override ─────────────────────────────────────
 
 abstract class Shape {
+  factory Shape.circle(double radius) = Circle;
+
   String get name;
   double get area;
 }
@@ -279,6 +283,7 @@ class Rectangle extends Shape {
   final double width;
   final double height;
   Rectangle(this.width, this.height);
+  Rectangle.square(double side) : this(side, side);
 
   @override
   String get name => 'rectangle';
@@ -419,10 +424,8 @@ String validateAge(int age) {
 
 Future<int> countStreamEvents() async {
   var count = 0;
-  // Simulated stream would be: await for (var event in stream)
-  // For compilation, we use a regular for loop here
-  for (var i = 0; i < 5; i++) {
-    count++;
+  await for (final event in Stream.fromIterable([1, 2, 3])) {
+    count += event;
   }
   return count;
 }
@@ -471,6 +474,29 @@ String getStatus(int code) {
     500 => 'server error',
     _ => 'unknown',
   };
+}
+
+// ── 24. Variables, constants, and type aliases ────────────────────────────────
+
+typedef IntReducer = int Function(int current, int next);
+
+const maxPreviewItems = 5;
+final defaultSampleSize = 3;
+var featureTourEnabled = true;
+
+// ── 25. Enum members ───────────────────────────────────────────────────────────
+
+enum BuildMode {
+  debug,
+  release;
+
+  bool get isOptimized => this == BuildMode.release;
+}
+
+// ── 26. Extension type ────────────────────────────────────────────────────────
+
+extension type UserLabel(String value) {
+  bool get isBlank => value.isEmpty;
 }
 
 // Stubs so the file compiles independently.
