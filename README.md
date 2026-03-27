@@ -9,20 +9,25 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Construct | Extracted | Diagram |
 |---|---|---|
 | `if` / `else if` / `else` | ✅ | ✅ NS triangle with Yes/No branches |
-| `if (x case Pattern when guard)` Dart 3 | ✅ | ✅ condition shows full pattern |
+| `if (x case Pattern when guard)` Dart 3 | ⚠️ | ⚠️ shows expr only, case+guard dropped |
 | `while` | ✅ | ✅ loop block |
 | `do … while` | ✅ | ✅ body-first loop block |
 | `for (init; cond; incr)` | ✅ | ✅ for block |
 | `for (x in collection)` | ✅ | ✅ for block |
+| `await for (x in stream)` | ✅ | ⚠️ extracted but no async accent |
 | `switch / case / default` (classic) | ✅ | ✅ side-by-side columns |
 | `switch` with Dart 3 patterns & guards | ✅ | ✅ pattern text in case label |
+| `switch(v) { p => e }` expression (Dart 3) | ⬜ | ⬜ rendered as plain action |
 | `try / on / catch / finally` | ✅ | ✅ catch lanes + finally |
+| `throw expr` | ✅ | ⬜ rendered as plain action |
 | `await expr` | ✅ | ✅ purple accent + `await` badge |
 | `yield` / `yield*` | ✅ | ✅ green accent + `yield` / `yield*` badge |
+| `return expr` | ✅ | ⬜ rendered as plain action, no terminal shape |
 | `rethrow` | ✅ | ✅ red accent + `rethrow` badge |
 | `assert(cond, msg?)` | ✅ | ✅ amber accent + `assert` badge |
 | `break` / `break label` | ✅ | ✅ orange accent + `break` badge |
 | `continue` / `continue label` | ✅ | ✅ orange accent + `continue` badge |
+| `var (a, b) = expr` pattern variable | ✅ | ⬜ rendered as plain action |
 
 ### Function Discovery
 
@@ -36,11 +41,15 @@ Darta parses Dart source code through ANTLR and renders Nassi-Shneiderman diagra
 | Class setter | ✅ | |
 | Constructor (default) | ✅ | block body only |
 | Constructor (named) | ✅ | block body only |
+| Constructor (redirecting `this(...)`) | ⬜ | no body to diagram |
+| Constructor (`const`) | ⬜ | no body to diagram |
+| Redirecting factory (`= ClassName`) | ⬜ | no body to diagram |
 | Factory constructor | ✅ | |
 | Operator overload | ✅ | |
 | Mixin method / getter | ✅ | |
 | Extension method / getter | ✅ | |
 | Extension type method | ✅ | |
+| Enum method / getter | ✅ | via `enumBody` member declarations |
 | Local function declaration | ⬜ | shown as action label |
 
 ### Grammar
